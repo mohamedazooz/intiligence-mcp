@@ -1,0 +1,2 @@
+# intiligence-mcp
+intiligence
