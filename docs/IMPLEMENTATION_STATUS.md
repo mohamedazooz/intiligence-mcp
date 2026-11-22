@@ -43,3 +43,18 @@
 5. Add Docling as a separately isolated document/OCR pipeline; benchmark against the existing parser.
 6. Complete file-level Crawl4AI review and selectively vendor only independently useful, safe, license-compatible modules.
 7. Review remaining upstream candidates against actual product requirements; do not bulk-copy whole repositories with incompatible licenses or irrelevant services.
+
+
+## Follow-up policy slice (2026-11-22)
+
+- Added `policy/robots.py`: conservative robots.txt enforcement, 15-minute in-memory cache, per-origin async lock, redirects not followed, and fail-closed behavior for transport errors and non-200/non-404/non-410 responses.
+- `research_fetch` now validates the target URL, checks robots.txt, and returns `blocked_by_robots_txt` when disallowed.
+- Added MCP tool `research_check_robots` for explicit policy inspection.
+- Added unit coverage for allow/disallow rules and cache behavior.
+- Latest validation after this slice: 19 tests passed; Ruff clean; `git diff --check` clean.
+
+### Policy caveats
+
+- Robots rules are crawler coordination policy, not authorization or access control. Domain allow/deny policy and operator authorization still apply independently.
+- The robots cache is process-local and resets on restart. A multi-worker deployment needs a shared cache.
+- This slice does not close DNS rebinding. HTTP transport DNS pinning or network egress enforcement remains a production blocker.

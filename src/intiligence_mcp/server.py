@@ -7,6 +7,7 @@ from intiligence_mcp.acquisition.captcha.escalation import escalate_challenge
 from intiligence_mcp.acquisition.http import fetch_url
 from intiligence_mcp.config import settings
 from intiligence_mcp.extraction.trafilatura_adapter import extract_main_text
+from intiligence_mcp.policy.robots import robots_policy
 from intiligence_mcp.security.url_policy import validate_url
 from intiligence_mcp.storage.evidence import EvidenceStore
 from intiligence_mcp.storage.source_registry import SourceRegistry
@@ -20,6 +21,14 @@ mcp = FastMCP("Intiligence MCP")
 @mcp.tool()
 async def research_fetch(url: str) -> dict:
     """Fetch a public HTTP(S) page under SSRF, redirect, and response-size controls."""
+    validate_url(
+        url,
+        allow_private=settings.allow_private_networks,
+        allowlist=settings.domains(settings.domain_allowlist),
+        denylist=settings.domains(settings.domain_denylist),
+    )
+    if not await robots_policy.can_fetch(url):
+        return {"url": url, "status": "blocked_by_robots_txt"}
     html, final_url = await fetch_url(url)
     challenge = detect_challenge(html)
     if challenge.detected:
@@ -42,6 +51,19 @@ async def research_fetch(url: str) -> dict:
         "content_sha256": evidence.content_sha256,
         "captured_at": evidence.captured_at,
     }
+
+
+@mcp.tool()
+async def research_check_robots(url: str) -> dict:
+    """Check whether robots.txt permits fetching a public HTTP(S) URL."""
+    validate_url(
+        url,
+        allow_private=settings.allow_private_networks,
+        allowlist=settings.domains(settings.domain_allowlist),
+        denylist=settings.domains(settings.domain_denylist),
+    )
+    allowed = await robots_policy.can_fetch(url)
+    return {"url": url, "allowed": allowed, "policy": "robots.txt"}
 
 
 @mcp.tool()
