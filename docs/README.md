@@ -16,6 +16,7 @@ This documentation describes the target design for Intiligence MCP. It distingui
 
 ## Integrations and decisions
 - [Integration catalog](INTEGRATION_CATALOG.md)
+- [Intelligence MCP v2 archive review and integration plan](research-pack/INTELLIGENCE_MCP_V2_INTEGRATION_REVIEW.md)
 - [ADR 0001 — Modular monolith](adr/ADR-0001-modular-monolith.md)
 - [ADR 0002 — Evidence provenance](adr/ADR-0002-evidence-provenance.md)
 - [ADR 0003 — Provider adapters](adr/ADR-0003-provider-adapters.md)

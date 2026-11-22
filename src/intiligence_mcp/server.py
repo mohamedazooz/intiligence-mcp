@@ -11,14 +11,17 @@ from intiligence_mcp.acquisition.http import fetch_url
 from intiligence_mcp.config import settings
 from intiligence_mcp.extraction.trafilatura_adapter import extract_main_text
 from intiligence_mcp.policy.robots import robots_policy
+from intiligence_mcp.research.github import GitHubResearchError, inspect_public_repository
 from intiligence_mcp.security.url_policy import validate_url
 from intiligence_mcp.storage.claims import ClaimLedger
 from intiligence_mcp.storage.evidence import EvidenceStore
+from intiligence_mcp.storage.indicators import IndicatorStore, extract_indicators
 from intiligence_mcp.storage.source_registry import SourceRegistry
 
 _source_registry = SourceRegistry(settings.source_registry_path)
 _evidence_store = EvidenceStore(settings.source_registry_path)
 _claim_ledger = ClaimLedger(settings.source_registry_path)
+_indicator_store = IndicatorStore(settings.source_registry_path)
 
 mcp = FastMCP("Intiligence MCP")
 
@@ -113,6 +116,54 @@ async def research_get_evidence(evidence_id: str) -> dict:
         "captured_at": record.captured_at,
         "content": record.content,
     }
+
+
+@mcp.tool()
+async def research_extract_indicators(evidence_id: str) -> dict:
+    """Extract passive IOCs from existing evidence and preserve the evidence links."""
+    evidence = _evidence_store.get(evidence_id)
+    if evidence is None:
+        return {"status": "not_found", "evidence_id": evidence_id}
+    values = extract_indicators(evidence.content)
+    records = _indicator_store.add_many(evidence_id, values)
+    return {
+        "status": "ok",
+        "evidence_id": evidence_id,
+        "indicator_count": len(records),
+        "indicators": [
+            {
+                "indicator_id": item.indicator_id,
+                "kind": item.kind,
+                "value": item.value,
+            }
+            for item in records
+        ],
+    }
+
+
+@mcp.tool()
+async def research_find_indicator(value: str, kind: str | None = None) -> dict:
+    """Find an indexed IOC and the evidence records that support its occurrence."""
+    matches = _indicator_store.find(value, kind)
+    return {
+        "status": "ok" if matches else "not_found",
+        "query": value,
+        "kind": kind,
+        "matches": matches,
+    }
+
+
+@mcp.tool()
+async def research_inspect_github_repository(repo_or_url: str) -> dict:
+    """Inventory a public GitHub repository's metadata, MCP manifests, skills, hooks, and build files."""
+    try:
+        return await inspect_public_repository(
+            repo_or_url,
+            _source_registry,
+            _evidence_store,
+        )
+    except GitHubResearchError as exc:
+        return {"status": "rejected", "reason": str(exc)}
 
 
 @mcp.tool()

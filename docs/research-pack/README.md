@@ -8,7 +8,7 @@ Target repository: https://github.com/mohamedazooz/intiligence-mcp
 
 Existing control plane: https://github.com/mohamedazooz/MULTI-AGENTS-OPS
 
-The target repository is currently documentation-first in the inspected main tree. The existing OmniMCP control plane remains a separate repository. Intiligence owns source discovery/acquisition, evidence, claims, research workflows and cited reports. Do not duplicate the control plane.
+The target repository now contains an early Python MCP runtime with bounded HTTP acquisition, SSRF/egress controls, robots policy, source/evidence registries, a claim ledger, evidence-linked IOC indexing, and a public GitHub repository inventory tool. The existing OmniMCP control plane remains a separate repository. Intiligence owns source discovery/acquisition, evidence, claims, research workflows and cited reports. Do not duplicate the control plane.
 
 ## Inspected inputs
 
@@ -53,6 +53,7 @@ Prefer dependencies, APIs and adapters. Fork or copy source only after exact com
 - roadmap/: master phases, backlog and acceptance gates.
 - security/: threat model and safe acquisition policy.
 - UPSTREAM_SOURCE_MANIFEST.md: 22-repository audit register.
+- INTELLIGENCE_MCP_V2_INTEGRATION_REVIEW.md: security-led review and staged integration decisions for the supplied v2 archive.
 
 ## Status labels
 
