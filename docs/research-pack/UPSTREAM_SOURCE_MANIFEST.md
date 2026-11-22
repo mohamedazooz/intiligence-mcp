@@ -39,7 +39,7 @@ This manifest distinguishes discovery from actual source vendoring and runtime i
 - Provenance: `third_party/provenance/TRAFILATURA-CITATION.cff`
 - Notice: `third_party/NOTICE.md`
 - Source modifications: whitespace-only trailing-space cleanup in `data/tei_corpus.dtd` and `settings.cfg`; imported under a private package namespace.
-- Verification: 12 unit tests passed; Ruff checks passed for first-party code; package import resolved to the vendored path.
+- Verification: 17 unit tests passed; Ruff checks passed for first-party code; package import resolved to the vendored path.
 
 ## Status vocabulary
 
