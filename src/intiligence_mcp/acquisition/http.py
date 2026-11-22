@@ -29,8 +29,16 @@ async def fetch_response(
         "User-Agent": settings.user_agent,
         "Accept": "text/html,application/xhtml+xml",
     }
+    if settings.require_egress_proxy and not settings.egress_proxy_url.strip():
+        raise AcquisitionError("Egress proxy is required but not configured; outbound request denied")
+
     timeout = aiohttp.ClientTimeout(total=settings.request_timeout_seconds)
-    resolver = PinnedPublicResolver(allow_private=settings.allow_private_networks)
+    # When proxying, the connector resolves only the proxy endpoint. The proxy
+    # independently enforces destination-IP ACLs; the target URL is still
+    # resolved and checked by validate_url before every request/redirect hop.
+    resolver = PinnedPublicResolver(
+        allow_private=settings.allow_private_networks or bool(settings.egress_proxy_url.strip())
+    )
     connector = aiohttp.TCPConnector(
         resolver=resolver,
         use_dns_cache=True,
@@ -54,7 +62,11 @@ async def fetch_response(
             )
             await _host_limiter.wait(host)
             try:
-                async with client.get(current, allow_redirects=False) as response:
+                async with client.get(
+                    current,
+                    allow_redirects=False,
+                    proxy=settings.egress_proxy_url.strip() or None,
+                ) as response:
                     if response.status in {301, 302, 303, 307, 308}:
                         if hop >= redirect_limit:
                             raise AcquisitionError("Redirect limit exceeded")

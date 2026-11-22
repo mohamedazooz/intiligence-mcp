@@ -74,6 +74,9 @@ The MCP server currently exposes `research_fetch`, `research_check_robots`, `res
 ├── src/intiligence_mcp/      # MCP runtime, acquisition, security, extraction, storage
 ├── tests/unit/               # Unit and regression tests
 ├── third_party/              # Vendored license and provenance notices
+├── deploy/                   # Reference Docker egress-proxy deployment profile
+├── Dockerfile                # Non-root MCP runtime image
+├── compose.yaml              # Isolated app/proxy network topology
 └── docs/
     ├── README.md             # Documentation index
     ├── ARCHITECTURE.md       # C4 architecture and component boundaries
@@ -97,6 +100,7 @@ The MCP server currently exposes `research_fetch`, `research_check_robots`, `res
 - [Integration catalog](docs/INTEGRATION_CATALOG.md)
 - [Security and threat model](docs/SECURITY.md)
 - [Operations and deployment](docs/OPERATIONS.md)
+- [Isolated egress proxy deployment profile](deploy/EGRESS_SECURITY.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture decision records](docs/adr/)
 
@@ -146,7 +150,7 @@ See [ROADMAP.md](docs/ROADMAP.md) for proposed deliverables and acceptance crite
 
 ## Current status and contribution
 
-This repository is at an early runtime stage. The current local baseline is 22 passing unit tests, clean Ruff checks, successful Python 3.13 editable installation, and no broken package requirements. DNS rebinding protection, isolated browser execution, shared/distributed robots policy, PostgreSQL persistence, reviewer identity/approval audit, advanced claim relationships and contradiction analysis, and production authentication remain incomplete. Contributions must distinguish implemented, proposed, and deferred work and include reproducible validation evidence.
+This repository is at an early runtime stage. The current local baseline is 33 passing unit tests, clean Ruff and mypy checks, successful Python 3.13 package installation, and no broken package requirements. Application-level DNS pinning is implemented, and a Docker reference profile now routes acquisition through an isolated Squid egress proxy; the Docker daemon was unavailable during this change, so image builds and live network/ACL tests remain unverified. Isolated browser execution, shared/distributed robots policy, PostgreSQL persistence, reviewer identity/approval audit, advanced claim relationships and contradiction analysis, and production authentication remain incomplete. Contributions must distinguish implemented, proposed, and deferred work and include reproducible validation evidence.
 
 Before opening a pull request, verify the actual build and test commands from the project configuration, run the relevant checks, and summarize limitations honestly.
 

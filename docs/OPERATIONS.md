@@ -19,7 +19,13 @@ The agent guide sets an initial target of approximately **2 vCPU and 6 GB RAM**.
 
 ## Configuration contract
 
-Document each environment variable in an example file once implementation exists. Include purpose, required/optional status, default, secret classification, and validation rules. Never commit real credentials.
+| Variable | Default | Purpose | Notes |
+|---|---|---|---|
+| `INTILIGENCE_EGRESS_PROXY_URL` | empty | HTTP(S) proxy origin for outbound acquisition | Optional outside the isolated Compose profile; credentials, paths, query strings, and fragments are rejected. |
+| `INTILIGENCE_REQUIRE_EGRESS_PROXY` | `false` | Fail closed if no egress proxy is configured | Set to `true` in the isolated Compose profile. |
+| `INTILIGENCE_ALLOW_PRIVATE_NETWORKS` | `false` | Permit private target addresses | Keep `false` for public research acquisition; never enable in the reference egress profile. |
+
+Never commit real credentials. See [isolated egress profile](../deploy/EGRESS_SECURITY.md) for the reference network topology and remaining deployment gates.
 
 ## Observability
 
@@ -42,4 +48,4 @@ Back up PostgreSQL on a documented schedule. Test restore, not just backup creat
 
 ## Operational commands
 
-Actual install, build, test, migration, and start commands are omitted until implementation manifests exist. Do not guess commands.
+The repository now includes a Dockerfile and Compose reference profile. Validate its rendered configuration with `docker compose -f compose.yaml config --quiet`, then follow [EGRESS_SECURITY.md](../deploy/EGRESS_SECURITY.md) for build/run commands. The profile has not been deployed to a live Docker daemon or VPS; do not treat it as production-validated.
