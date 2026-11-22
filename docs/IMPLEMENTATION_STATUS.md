@@ -19,7 +19,7 @@
 ## Latest local verification
 
 - Python: 3.13
-- `py -3.13 -m pytest -q`: 33 passed
+- `py -3.13 -m pytest -q`: 56 passed
 - `py -3.13 -m ruff check src/intiligence_mcp tests`: passed
 - `py -3.13 -m mypy src/intiligence_mcp`: passed
 - `docker compose -f compose.yaml config --quiet`: passed (static configuration validation only; Docker daemon unavailable)
@@ -91,6 +91,7 @@ The ledger is an initial structured claim register, not automated fact verificat
 - The proxy is not published on a host port, allows only the application subnet and web ports, and denies special-use IPv4/IPv6 destination ranges including loopback, RFC1918, link-local, CGNAT, metadata/link-local ranges, documentation, multicast, and reserved ranges.
 - Added `INTILIGENCE_EGRESS_PROXY_URL` and `INTILIGENCE_REQUIRE_EGRESS_PROXY`. Required-proxy mode fails closed when no proxy URL is configured. HTTP and robots requests pass the configured proxy explicitly; environment proxy variables remain ignored.
 - Added tests for required-proxy fail-closed behavior, proxy-origin URL validation (scheme, credentials, path, port normalization), and an HTTP proxy integration test proving requests use the configured proxy endpoint.
-- Local verification: 33 tests passed; Ruff, mypy, pip check, and git diff checks passed.
+- Added static CIDR-policy tests covering 20 representative special-use IPv4/IPv6 destinations and three representative public addresses; the tests parse the Squid ACL source directly.
+- Local verification: 56 tests passed; Ruff, mypy, pip check, and git diff checks passed.
 - Docker CLI and Compose are installed. `docker compose -f compose.yaml config --quiet` passed, but the Docker Desktop Linux engine was unavailable. Therefore image builds, Squid startup, and live ACL/egress tests could not be verified. No container or VPS deployment was performed.
 - Deployment instructions and explicit remaining gates are documented in `deploy/EGRESS_SECURITY.md`.
