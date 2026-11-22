@@ -13,7 +13,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from configparser import ConfigParser
 from functools import partial
 from http.cookiejar import LoadError, MozillaCookieJar
-from importlib.metadata import version
 from io import BytesIO
 from time import sleep
 from typing import Any
@@ -24,6 +23,7 @@ import certifi
 import urllib3
 from courlan import UrlStore
 
+from . import __version__
 from .settings import DEFAULT_CONFIG, Extractor
 from .utils import (
     URL_BLACKLIST_REGEX,
@@ -88,7 +88,7 @@ def _apply_curl_network(curl: "pycurl.Curl", config: ConfigParser) -> None:
 
 # advertises exactly the encodings urllib3 can decode
 DEFAULT_HEADERS = urllib3.util.make_headers(accept_encoding=True)
-USER_AGENT = "trafilatura/" + version("trafilatura") + " (+https://github.com/adbar/trafilatura)"
+USER_AGENT = "trafilatura/" + __version__ + " (+https://github.com/adbar/trafilatura)"
 DEFAULT_HEADERS["User-Agent"] = USER_AGENT
 
 # includes unofficial codes: https://en.wikipedia.org/wiki/List_of_HTTP_status_codes#Unofficial_codes

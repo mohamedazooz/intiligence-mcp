@@ -29,6 +29,7 @@ def validate_url(
     allow_private: bool = False,
     allowlist: set[str] | None = None,
     denylist: set[str] | None = None,
+    allow_temporary_dns_failure: bool = False,
 ) -> str:
     try:
         parsed = urlsplit(url)
@@ -64,6 +65,10 @@ def validate_url(
             )
             addresses = {str(record[4][0]).split("%", 1)[0] for record in records}
         except socket.gaierror as exc:
+            if allow_temporary_dns_failure and exc.errno == socket.EAI_AGAIN:
+                # In an isolated proxy-only network, the app may have no direct DNS route.
+                # The mandatory egress proxy resolves the hostname and enforces destination ACLs.
+                return host
             raise URLPolicyError("Host DNS resolution failed") from exc
     if not addresses or any(not _is_public_ip(address) for address in addresses):
         raise URLPolicyError("Host resolves to a non-public or unsafe IP address")

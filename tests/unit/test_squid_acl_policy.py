@@ -19,6 +19,8 @@ def blocked_networks():
 
 def is_blocked(address: str) -> bool:
     ip = ipaddress.ip_address(address)
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
     return any(ip.version == network.version and ip in network for network in blocked_networks())
 
 
