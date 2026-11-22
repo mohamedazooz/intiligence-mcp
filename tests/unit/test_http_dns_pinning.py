@@ -55,3 +55,47 @@ async def test_http_connector_uses_resolver_returned_ip(monkeypatch):
     finally:
         server.close()
         await server.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_http_acquisition_routes_through_configured_proxy(monkeypatch):
+    request_lines = []
+    resolver_options = []
+
+    async def proxy_handler(reader, writer):
+        request_lines.append((await reader.readline()).decode().strip())
+        while await reader.readline() not in (b"\r\n", b""):
+            pass
+        writer.write(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+        )
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+
+    server = await asyncio.start_server(proxy_handler, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+
+    async def no_wait(_host):
+        return None
+
+    def resolver_factory(**kwargs):
+        resolver_options.append(kwargs)
+        return LoopbackResolver()
+
+    monkeypatch.setattr(http, "PinnedPublicResolver", resolver_factory)
+    monkeypatch.setattr(http, "validate_url", lambda _url, **_kwargs: "public.test")
+    monkeypatch.setattr(http._host_limiter, "wait", no_wait)
+    monkeypatch.setattr(settings, "allow_private_networks", False)
+    monkeypatch.setattr(settings, "require_egress_proxy", True)
+    monkeypatch.setattr(settings, "egress_proxy_url", f"http://proxy.test:{port}")
+
+    try:
+        body, final_url = await http.fetch_url("http://public.test/resource")
+        assert body == "ok"
+        assert final_url == "http://public.test/resource"
+        assert request_lines == ["GET http://public.test/resource HTTP/1.1"]
+        assert resolver_options == [{"allow_private": True}]
+    finally:
+        server.close()
+        await server.wait_closed()

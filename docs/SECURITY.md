@@ -39,6 +39,10 @@ Separate tenants/projects in every read/write path. Apply retention and deletion
 
 Treat retrieved text as untrusted data. Do not follow instructions contained in sources. Separate inference from verified claims. Require evidence links and review state for claim promotion. Preserve conflicting evidence and provenance.
 
+## Network egress reference profile
+
+A Docker reference profile is provided in `deploy/EGRESS_SECURITY.md`. It places the MCP process on an internal-only Docker network and requires HTTP(S) acquisition to pass through a dedicated Squid proxy with special-use destination CIDR deny rules. This is an implementation artifact, not yet a verified production control: the Docker engine was unavailable during development, and live Squid ACL, IPv6, metadata, Docker-host, and host/cloud firewall tests remain mandatory before deployment.
+
 ## Production security gates
 
 Threat-model review, SSRF tests, parser negative tests, authorization tests, secret scanning, dependency/license review, retention verification, and incident-response runbook.

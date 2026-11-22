@@ -10,6 +10,7 @@ This documentation describes the target design for Intiligence MCP. It distingui
 ## Engineering and operations
 - [Security and threat model](SECURITY.md)
 - [Operations and deployment](OPERATIONS.md)
+- [Isolated egress proxy deployment profile](../deploy/EGRESS_SECURITY.md)
 - [Agent operating guide](../AGENTS.md)
 - [Roadmap](ROADMAP.md)
 

@@ -4,7 +4,7 @@
 
 - Python 3.12–3.14 package foundation and editable installation (`pip install -e . --no-deps` verified on Python 3.13).
 - MCP server entry point: `intiligence_mcp.server`.
-- MCP tools: `research_fetch`, `research_register_source`, and `research_get_evidence`.
+- MCP tools: `research_fetch`, `research_check_robots`, `research_register_source`, `research_get_evidence`, `research_create_claim`, and `research_review_claim`.
 - Bounded HTTP acquisition: manual redirect handling, per-hop URL checks, response byte cap, request timeout, environment proxy inheritance disabled, and aiohttp DNS resolver pinning (validated numeric addresses are the addresses handed to the connector).
 - URL policy: HTTP(S)-only, embedded-credential rejection, domain allow/deny lists (including denied subdomains), and DNS/IP checks.
 - Process-local per-host request pacing, configurable with `INTILIGENCE_MIN_HOST_INTERVAL_SECONDS`.
@@ -19,15 +19,17 @@
 ## Latest local verification
 
 - Python: 3.13
-- `py -3.13 -m pytest -q`: 28 passed
+- `py -3.13 -m pytest -q`: 33 passed
 - `py -3.13 -m ruff check src/intiligence_mcp tests`: passed
+- `py -3.13 -m mypy src/intiligence_mcp`: passed
+- `docker compose -f compose.yaml config --quiet`: passed (static configuration validation only; Docker daemon unavailable)
 - DNS resolver unit tests reject mixed public/private DNS answers and metadata addresses; an HTTP connector integration test confirms aiohttp connects to the numeric address returned by the configured resolver.
 - Editable package wheel built and installed successfully; `pip check` reports no broken requirements.
 - Crawl4AI shallow checkout inspected at commit `67a717723f6413eeb5a5b14569aef8308f888adc`; upstream declares Apache-2.0 and has 86 Python/source files in its package tree.
 
 ## Known limitations — not production-ready yet
 
-1. The application HTTP and robots.txt paths now use `PinnedPublicResolver`: aiohttp connects to the exact numeric addresses returned by the resolver after public-IP validation, retaining the original hostname for Host/TLS verification. The resolver rejects the entire answer set if any address is non-public (unless `INTILIGENCE_ALLOW_PRIVATE_NETWORKS=true` is explicitly configured). This closes the application-level DNS check/use gap for these aiohttp requests. A production egress firewall/proxy is still required as defense in depth and to constrain browser subprocesses, DNS outside this client, and other future network-capable components.
+1. The application HTTP and robots.txt paths use `PinnedPublicResolver`: aiohttp connects to the exact numeric addresses returned by the resolver after public-IP validation, retaining the original hostname for Host/TLS verification. The resolver rejects the entire answer set if any address is non-public (unless `INTILIGENCE_ALLOW_PRIVATE_NETWORKS=true` is explicitly configured). A Docker reference profile now adds an isolated app network, required Squid proxy routing, and destination CIDR deny rules. The Docker daemon was unavailable during implementation, so image builds, runtime behavior, and live Squid ACL enforcement have not been verified. Production still requires host/cloud egress firewall policy and staging validation.
 2. Browser automation is not enabled. Playwright must run in an isolated worker/container with enforced network egress policy; application-level URL validation alone cannot constrain browser subresource requests.
 3. Per-host pacing is process-local. Multi-worker deployments require a shared/distributed limiter.
 4. Source-domain authorization workflow, immutable evidence capsules, PostgreSQL migrations, tenant authentication, reviewer attribution, and durable job orchestration remain to be implemented.
@@ -37,7 +39,7 @@
 
 ## Next implementation sequence
 
-1. Add deployment-level egress firewall/proxy rules and integration tests in the production-like network environment; application-level HTTP/robots DNS pinning is now implemented.
+1. Validate the Docker egress profile with a running Docker daemon and live Squid ACL tests, then enforce matching host/cloud egress firewall rules in staging; application-level HTTP/robots DNS pinning is implemented.
 2. Add shared/distributed per-domain pacing and robots cache for multi-worker deployments.
 3. Add an isolated Playwright browser worker with DNS/egress, download, subresource, and filesystem controls.
 4. Add immutable evidence capsules, reviewer attribution, PostgreSQL migrations, tenant authentication, and durable job orchestration.
@@ -58,7 +60,7 @@
 
 - Robots rules are crawler coordination policy, not authorization or access control. Domain allow/deny policy and operator authorization still apply independently.
 - The robots cache is process-local and resets on restart. A multi-worker deployment needs a shared cache.
-- This slice does not close DNS rebinding. HTTP transport DNS pinning or network egress enforcement remains a production blocker.
+- At the time of this initial robots-policy slice, DNS rebinding was not yet closed. The later DNS-pinned acquisition slice below supersedes that limitation; production network egress controls are now specified in the isolated egress deployment slice, but live deployment validation remains outstanding.
 
 
 ## Claim ledger slice (2026-11-22)
@@ -81,3 +83,14 @@ The ledger is an initial structured claim register, not automated fact verificat
 - Added resolver tests for public answers, mixed public/private rebinding answers, metadata IP rejection, explicit private opt-in, and a local HTTP integration test proving the connector uses the resolver-returned IP.
 - Local verification on Python 3.13: 28 tests passed; Ruff and mypy passed; `pip check` and `git diff --check` passed.
 - Defense in depth still requires network egress controls for browser workers and any network clients added outside this transport.
+
+## Isolated egress deployment slice (2026-11-22)
+
+- Added a non-root application Dockerfile and a Compose topology with an internal-only app network (`172.30.0.0/24`) and a separate Squid proxy attached to both the internal and egress networks.
+- The MCP container has no direct external route, runs read-only with dropped capabilities, no-new-privileges, bounded PIDs/CPU/memory, and a persistent data volume.
+- The proxy is not published on a host port, allows only the application subnet and web ports, and denies special-use IPv4/IPv6 destination ranges including loopback, RFC1918, link-local, CGNAT, metadata/link-local ranges, documentation, multicast, and reserved ranges.
+- Added `INTILIGENCE_EGRESS_PROXY_URL` and `INTILIGENCE_REQUIRE_EGRESS_PROXY`. Required-proxy mode fails closed when no proxy URL is configured. HTTP and robots requests pass the configured proxy explicitly; environment proxy variables remain ignored.
+- Added tests for required-proxy fail-closed behavior, proxy-origin URL validation (scheme, credentials, path, port normalization), and an HTTP proxy integration test proving requests use the configured proxy endpoint.
+- Local verification: 33 tests passed; Ruff, mypy, pip check, and git diff checks passed.
+- Docker CLI and Compose are installed. `docker compose -f compose.yaml config --quiet` passed, but the Docker Desktop Linux engine was unavailable. Therefore image builds, Squid startup, and live ACL/egress tests could not be verified. No container or VPS deployment was performed.
+- Deployment instructions and explicit remaining gates are documented in `deploy/EGRESS_SECURITY.md`.

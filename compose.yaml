@@ -1,0 +1,68 @@
+services:
+  egress-proxy:
+    build:
+      context: ./deploy/egress-proxy
+    restart: unless-stopped
+    read_only: true
+    user: "13:13"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /run/squid:uid=13,gid=13,mode=0755
+      - /var/log/squid:uid=13,gid=13,mode=0755
+      - /var/cache/squid:uid=13,gid=13,mode=0755
+      - /tmp:uid=13,gid=13,mode=1777
+    networks:
+      internal_net:
+        ipv4_address: 172.30.0.2
+      egress_net: {}
+    healthcheck:
+      test: ["CMD-SHELL", "squidclient -h 127.0.0.1 -p 3128 mgr:info >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  intiligence-mcp:
+    build:
+      context: .
+    restart: "no"
+    init: true
+    stdin_open: true
+    tty: false
+    read_only: true
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 1.5
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=1777
+    environment:
+      INTILIGENCE_EGRESS_PROXY_URL: http://egress-proxy:3128
+      INTILIGENCE_REQUIRE_EGRESS_PROXY: "true"
+      INTILIGENCE_ALLOW_PRIVATE_NETWORKS: "false"
+      INTILIGENCE_SOURCE_REGISTRY_PATH: /app/.data/sources.sqlite3
+    volumes:
+      - intiligence_data:/app/.data
+    depends_on:
+      egress-proxy:
+        condition: service_healthy
+    networks:
+      - internal_net
+
+networks:
+  internal_net:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+  egress_net: {}
+
+volumes:
+  intiligence_data:
