@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     allow_private_networks: bool = False
     egress_proxy_url: str = ""
     require_egress_proxy: bool = False
+    redis_url: str = ""
+    require_shared_rate_limiter: bool = False
     domain_allowlist: str = ""
     domain_denylist: str = ""
 
@@ -43,6 +45,28 @@ class Settings(BaseSettings):
         ):
             raise ValueError("Egress proxy must be an HTTP(S) origin without credentials or path")
         return value.rstrip("/")
+
+    @field_validator("redis_url")
+    @classmethod
+    def validate_redis_url(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            return value
+        try:
+            parsed = urlsplit(value)
+            port = parsed.port
+        except ValueError as exc:
+            raise ValueError("Invalid Redis URL") from exc
+        if (
+            parsed.scheme not in {"redis", "rediss"}
+            or not parsed.hostname
+            or parsed.fragment
+            or parsed.query
+            or (parsed.path not in {"", "/"} and not parsed.path.lstrip("/").isdigit())
+            or (port is not None and not 1 <= port <= 65535)
+        ):
+            raise ValueError("Redis URL must use redis/rediss with a host and optional database path")
+        return value
 
     def domains(self, raw: str) -> set[str]:
         return {x.strip().lower().rstrip(".") for x in raw.split(",") if x.strip()}

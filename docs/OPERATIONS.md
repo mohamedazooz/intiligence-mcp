@@ -24,6 +24,8 @@ The agent guide sets an initial target of approximately **2 vCPU and 6 GB RAM**.
 | `INTILIGENCE_EGRESS_PROXY_URL` | empty | HTTP(S) proxy origin for outbound acquisition | Optional outside the isolated Compose profile; credentials, paths, query strings, and fragments are rejected. |
 | `INTILIGENCE_REQUIRE_EGRESS_PROXY` | `false` | Fail closed if no egress proxy is configured | Set to `true` in the isolated Compose profile. |
 | `INTILIGENCE_ALLOW_PRIVATE_NETWORKS` | `false` | Permit private target addresses | Keep `false` for public research acquisition; never enable in the reference egress profile. |
+| `INTILIGENCE_REDIS_URL` | empty | Redis connection URL for shared host pacing | Optional outside multi-worker deployments; use `rediss://` for remote TLS endpoints and keep credentials in secrets. |
+| `INTILIGENCE_REQUIRE_SHARED_RATE_LIMIT` | `false` | Require Redis-backed host pacing | Set to `true` in the Compose profile; missing Redis configuration prevents server startup. |
 
 Never commit real credentials. See [isolated egress profile](../deploy/EGRESS_SECURITY.md) for the reference network topology and remaining deployment gates.
 

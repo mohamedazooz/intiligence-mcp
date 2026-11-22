@@ -7,12 +7,16 @@ from urllib.parse import urljoin
 
 import aiohttp
 
-from intiligence_mcp.acquisition.rate_limit import HostRateLimiter
+from intiligence_mcp.acquisition.rate_limit import create_host_rate_limiter
 from intiligence_mcp.config import settings
 from intiligence_mcp.security.dns_resolver import PinnedPublicResolver
 from intiligence_mcp.security.url_policy import validate_url
 
-_host_limiter = HostRateLimiter(settings.min_host_interval_seconds)
+_host_limiter = create_host_rate_limiter(
+    settings.min_host_interval_seconds,
+    redis_url=settings.redis_url,
+    require_shared=settings.require_shared_rate_limiter,
+)
 
 
 class AcquisitionError(RuntimeError):
@@ -60,7 +64,10 @@ async def fetch_response(
                 allowlist=settings.domains(settings.domain_allowlist),
                 denylist=settings.domains(settings.domain_denylist),
             )
-            await _host_limiter.wait(host)
+            try:
+                await _host_limiter.wait(host)
+            except Exception as exc:
+                raise AcquisitionError("Host pacing unavailable; acquisition denied") from exc
             try:
                 async with client.get(
                     current,

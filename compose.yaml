@@ -25,6 +25,31 @@ services:
       retries: 3
       start_period: 10s
 
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    read_only: true
+    user: "999:999"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    tmpfs:
+      - /tmp:uid=999,gid=999,mode=1777
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    networks:
+      - redis_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   intiligence-mcp:
     build:
       context: .
@@ -48,13 +73,18 @@ services:
       INTILIGENCE_REQUIRE_EGRESS_PROXY: "true"
       INTILIGENCE_ALLOW_PRIVATE_NETWORKS: "false"
       INTILIGENCE_SOURCE_REGISTRY_PATH: /app/.data/sources.sqlite3
+      INTILIGENCE_REDIS_URL: redis://redis:6379/0
+      INTILIGENCE_REQUIRE_SHARED_RATE_LIMIT: "true"
     volumes:
       - intiligence_data:/app/.data
     depends_on:
       egress-proxy:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - internal_net
+      - redis_net
 
 networks:
   internal_net:
@@ -63,6 +93,12 @@ networks:
       config:
         - subnet: 172.30.0.0/24
   egress_net: {}
+  redis_net:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24
 
 volumes:
   intiligence_data:
+  redis_data:
