@@ -4,12 +4,14 @@
 
 - Python 3.12–3.14 package foundation and editable installation (`pip install -e . --no-deps` verified on Python 3.13).
 - MCP server entry point: `intiligence_mcp.server`.
-- MCP tools: `research_fetch`, `research_check_robots`, `research_register_source`, `research_get_evidence`, `research_create_claim`, and `research_review_claim`.
+- MCP tools: `research_fetch`, `research_check_robots`, `research_register_source`, `research_get_evidence`, `research_extract_indicators`, `research_find_indicator`, `research_inspect_github_repository`, `research_create_claim`, and `research_review_claim`.
 - Bounded HTTP acquisition: manual redirect handling, per-hop URL checks, response byte cap, request timeout, environment proxy inheritance disabled, and aiohttp DNS resolver pinning (validated numeric addresses are the addresses handed to the connector).
 - URL policy: HTTP(S)-only, embedded-credential rejection, domain allow/deny lists (including denied subdomains), and DNS/IP checks.
 - Per-host request pacing: process-local by default, with optional Redis-backed cross-process pacing using an atomic Lua reservation script and Redis server time. Redis failures fail closed when the shared backend is configured.
 - SQLite source registry with canonical URL deduplication, stable SHA-256 source IDs, host index, first-seen timestamp, and WAL mode.
 - Append-only-through-API evidence store with source foreign keys, content SHA-256, deterministic evidence IDs, capture timestamps, and deduplication.
+- Evidence-linked passive IOC index for IPv4, IPv6, domains, CVEs, and SHA-256; deterministic indicator IDs, deduplication across evidence records, and lookup by indicator.
+- Public GitHub repository inventory using the existing bounded acquisition path; metadata and recursive tree responses are preserved as evidence, with MCP manifest/skills/hooks/build-file classification. No repository code is downloaded or executed.
 - Trafilatura 2.3.1 source vendored at pinned commit `65eac050b7a2961bac9aefdfb7514121dd7382ba` under `src/intiligence_mcp/_vendor/trafilatura`, with Apache-2.0 license and provenance retained.
 - Extraction adapter calling the vendored source.
 - CAPTCHA/access-challenge detection and explicit human-review escalation. No automatic challenge bypass is implemented.
@@ -19,33 +21,36 @@
 ## Latest local verification
 
 - Python: 3.13
-- `py -3.13 -m pytest -q`: 71 passed
-- `py -3.13 -m ruff check src/intiligence_mcp tests`: passed
-- `py -3.13 -m mypy src/intiligence_mcp`: passed
-- `docker compose -f compose.yaml config --quiet`: passed (static configuration validation only; Docker daemon unavailable)
+- Python 3.13 in Docker: `pytest tests/unit -q`: 88 passed (one optional PySocks dependency warning).
+- Ruff: passed with `EXE002` ignored for Windows bind-mount executable-mode artifacts.
+- mypy: passed (23 source files).
+- Docker images built; Compose configuration and Squid configuration parsing passed.
+- Local Docker integration verified Squid public HTTP/HTTPS, private/metadata/loopback/IPv6/IPv4-mapped destination denials, direct-egress denial from the app network, Redis-backed pacing, shared robots-cache reuse, and MCP stdio initialization/tool invocation. The GitHub repository inventory was exercised through the live egress proxy and MCP stdio; both GitHub API responses were stored with source/evidence IDs.
 - DNS resolver unit tests reject mixed public/private DNS answers and metadata addresses; an HTTP connector integration test confirms aiohttp connects to the numeric address returned by the configured resolver.
 - Editable package wheel built and installed successfully; `pip check` reports no broken requirements.
 - Crawl4AI shallow checkout inspected at commit `67a717723f6413eeb5a5b14569aef8308f888adc`; upstream declares Apache-2.0 and has 86 Python/source files in its package tree.
 
 ## Known limitations — not production-ready yet
 
-1. The application HTTP and robots.txt paths use `PinnedPublicResolver`: aiohttp connects to the exact numeric addresses returned by the resolver after public-IP validation, retaining the original hostname for Host/TLS verification. The resolver rejects the entire answer set if any address is non-public (unless `INTILIGENCE_ALLOW_PRIVATE_NETWORKS=true` is explicitly configured). A Docker reference profile now adds an isolated app network, required Squid proxy routing, and destination CIDR deny rules. The Docker daemon was unavailable during implementation, so image builds, runtime behavior, and live Squid ACL enforcement have not been verified. Production still requires host/cloud egress firewall policy and staging validation.
+1. The application HTTP and robots.txt paths use `PinnedPublicResolver` and per-hop URL validation. The local Docker profile routes through Squid and has been tested against public destinations and representative private, metadata, loopback, IPv6, mapped-IPv6, and Docker gateway destinations. Mixed DNS answers, DNS rebinding, redirects to private destinations under live staging conditions, host-gateway routes beyond the tested gateway, and production host/cloud egress firewall policy still require validation.
 2. Browser automation is not enabled. Playwright must run in an isolated worker/container with enforced network egress policy; application-level URL validation alone cannot constrain browser subresource requests.
-3. Redis-backed shared host pacing and shared robots-policy caching are implemented and enabled in the Compose profile. Redis is not yet verified against a live server in this environment; both shared-state paths require staging integration tests.
+3. Redis-backed shared host pacing and shared robots-policy caching are implemented and enabled in the Compose profile. Both were exercised against local Redis 7.4.12, including shared cache reuse. Production Redis TLS/authentication, failover, persistence, lock contention under load, and backup/restore still require staging validation.
 4. Source-domain authorization workflow, immutable evidence capsules, PostgreSQL migrations, tenant authentication, reviewer attribution, and durable job orchestration remain to be implemented.
-5. CAPTCHA solver provider integrations are not active. Any future solver must be gated to explicitly authorized domains and operator-approved test workflows.
+5. CAPTCHA detection and human-review escalation are implemented. Automatic CAPTCHA solving or technical access-control bypass is out of scope under the repository's responsible-acquisition policy.
 6. Crawl4AI has been cloned and metadata-inspected but is not vendored. Its overlapping browser/crawling stack, large dependency surface, and stealth/anti-bot related functionality require file-level review before selecting safe modules.
 7. Docling, Playwright source, search engines, CTI platforms, and workflow engines remain separate candidates; no claim is made that their code has been copied or approved.
 
 ## Next implementation sequence
 
-1. Validate the Docker egress profile with a running Docker daemon and live Squid ACL tests, then enforce matching host/cloud egress firewall rules in staging; application-level HTTP/robots DNS pinning is implemented.
-2. Validate Redis-backed host pacing and robots-policy caching against a live Redis service, including lock contention, TTL expiry, and Redis restart behavior.
-3. Add an isolated Playwright browser worker with DNS/egress, download, subresource, and filesystem controls.
-4. Add immutable evidence capsules, reviewer attribution, PostgreSQL migrations, tenant authentication, and durable job orchestration.
-5. Add Docling as a separately isolated document/OCR pipeline; benchmark against the existing parser.
-6. Complete file-level Crawl4AI review and selectively vendor only independently useful, safe, license-compatible modules.
-7. Review remaining upstream candidates against actual product requirements; do not bulk-copy whole repositories with incompatible licenses or irrelevant services.
+1. Complete staging egress validation: mixed DNS answers, DNS rebinding, redirect-to-private behavior, host-gateway variants, and matching host/cloud firewall rules.
+2. Stress-test Redis pacing and shared robots caching under contention, TTL expiry, Redis restart/failover, and persistence recovery.
+3. Add passive domain intelligence (DNS/RDAP/CT/Wayback) through approved acquisition adapters with provider evidence provenance.
+4. Add passive IP threat-intelligence enrichment with strict public-IP validation, provider disclosure, and bounded evidence capture.
+5. Add an isolated Playwright browser worker with DNS/egress, download, subresource, and filesystem controls.
+6. Add immutable evidence capsules, reviewer attribution, PostgreSQL migrations, tenant authentication, and durable job orchestration.
+7. Add Docling as a separately isolated document/OCR pipeline; benchmark against the existing parser.
+8. Complete file-level Crawl4AI review and selectively vendor only independently useful, safe, license-compatible modules.
+9. Review remaining upstream candidates against actual product requirements; do not bulk-copy whole repositories with incompatible licenses or irrelevant services.
 
 
 ## Follow-up policy slice (2026-11-22)

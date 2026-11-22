@@ -19,6 +19,8 @@
 | Static acquisition | Bounded HTTP client | SSRF controls, robots/terms, size limits |
 | Dynamic pages | Isolated browser worker, on demand | Sandbox, resource budget, site policy |
 | HTML extraction | Readability/structured parser adapters | Locator preservation and extraction quality |
+| IOC extraction/index | Evidence-linked SQLite indicator store | Strict parsing, deterministic IDs, evidence references, privacy minimization |
+| Public repository inventory | GitHub REST API via bounded acquisition | API rate limits, response caps, source/evidence provenance; never execute repository code |
 | PDF/office parsing | Docling or equivalent adapter | Accuracy, formats, runtime footprint, license |
 | Primary data store | PostgreSQL | Initial system of record per agent guide |
 | Vector retrieval | Optional Qdrant or PostgreSQL extension | Benchmark before adding another database |
@@ -42,4 +44,4 @@ Every adopted provider needs an ADR recording requirements, alternatives, licens
 
 ## Current status
 
-No third-party provider integration is confirmed by the current repository bootstrap. Add exact versions and test results only after inspecting and integrating the relevant code.
+The public GitHub repository inventory is implemented through the existing bounded acquisition path and was smoke-tested through the local Squid egress proxy and MCP stdio. Repository metadata and tree responses are persisted as source/evidence records. The IOC index is implemented in SQLite and links indicators to existing evidence. No other third-party OSINT provider from the supplied v2 archive is approved or enabled.

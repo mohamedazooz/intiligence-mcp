@@ -24,14 +24,14 @@ class AcquisitionError(RuntimeError):
 
 
 async def fetch_response(
-    url: str, *, max_redirects: int | None = None
+    url: str, *, max_redirects: int | None = None, accept: str | None = None
 ) -> tuple[int, str, str]:
     """Return status, decoded body, and final URL without following implicit redirects."""
     current = url
     redirect_limit = settings.max_redirects if max_redirects is None else max_redirects
     headers = {
         "User-Agent": settings.user_agent,
-        "Accept": "text/html,application/xhtml+xml",
+        "Accept": accept or "text/html,application/xhtml+xml",
     }
     if settings.require_egress_proxy and not settings.egress_proxy_url.strip():
         raise AcquisitionError("Egress proxy is required but not configured; outbound request denied")

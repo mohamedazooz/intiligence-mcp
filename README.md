@@ -62,7 +62,7 @@ See [C4 architecture](docs/ARCHITECTURE.md) for the system context, container vi
 
 ## MCP interface
 
-The MCP server currently exposes `research_fetch`, `research_check_robots`, `research_register_source`, `research_get_evidence`, `research_create_claim`, and `research_review_claim`. `research_fetch` acquires a public HTTP(S) page, detects access challenges, extracts text, registers the source, and persists a content-addressed evidence record. These tools are early-stage and inherit the security limitations documented in [runtime status](docs/IMPLEMENTATION_STATUS.md).
+The MCP server currently exposes `research_fetch`, `research_check_robots`, `research_register_source`, `research_get_evidence`, `research_extract_indicators`, `research_find_indicator`, `research_inspect_github_repository`, `research_create_claim`, and `research_review_claim`. `research_fetch` acquires a public HTTP(S) page, detects access challenges, extracts text, registers the source, and persists a content-addressed evidence record. Indicator extraction is passive and evidence-linked; it does not perform automatic external lookups.
 
 ## Repository map
 
@@ -71,7 +71,7 @@ The MCP server currently exposes `research_fetch`, `research_check_robots`, `res
 ├── AGENTS.md                 # Mandatory rules for contributors and coding agents
 ├── README.md                 # Project overview and entry point
 ├── pyproject.toml            # Python package, runtime dependencies, and tooling
-├── src/intiligence_mcp/      # MCP runtime, acquisition, security, extraction, storage
+├── src/intiligence_mcp/      # MCP runtime, acquisition, security, extraction, evidence and IOC storage
 ├── tests/unit/               # Unit and regression tests
 ├── third_party/              # Vendored license and provenance notices
 ├── deploy/                   # Reference Docker egress-proxy deployment profile
@@ -101,6 +101,7 @@ The MCP server currently exposes `research_fetch`, `research_check_robots`, `res
 - [Security and threat model](docs/SECURITY.md)
 - [Operations and deployment](docs/OPERATIONS.md)
 - [Isolated egress proxy deployment profile](deploy/EGRESS_SECURITY.md)
+- [Intelligence MCP v2 archive review and integration plan](docs/research-pack/INTELLIGENCE_MCP_V2_INTEGRATION_REVIEW.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture decision records](docs/adr/)
 
@@ -150,7 +151,7 @@ See [ROADMAP.md](docs/ROADMAP.md) for proposed deliverables and acceptance crite
 
 ## Current status and contribution
 
-This repository is at an early runtime stage. The current local baseline is 71 passing unit tests, clean Ruff and mypy checks, successful Python 3.13 package installation, and no broken package requirements. Application-level DNS pinning is implemented, and a Docker reference profile routes acquisition through an isolated Squid egress proxy with Redis-backed cross-process host pacing and shared robots-policy caching. The Docker daemon was unavailable during this change, so image builds and live network/ACL/Redis tests remain unverified. Isolated browser execution, PostgreSQL persistence, reviewer identity/approval audit, advanced claim relationships and contradiction analysis, and production authentication remain incomplete. Contributions must distinguish implemented, proposed, and deferred work and include reproducible validation evidence.
+This repository remains an early runtime implementation, not a production-hardened service. The current branch baseline has 88 passing unit tests, clean Ruff and mypy checks, and successful Python 3.13 package checks. Docker images were built and the local Docker integration verified Squid egress ACL behavior, direct-egress denial, Redis-backed host pacing, shared robots caching, and an MCP stdio round-trip. The public GitHub repository inventory was also exercised through the egress proxy and MCP stdio, with both API responses persisted as evidence. VPS validation, DNS rebinding/mixed-answer tests, full host-gateway coverage, remote Redis TLS/authentication, and backup/restore remain outstanding. Isolated browser execution, PostgreSQL persistence, reviewer identity/approval audit, advanced claim relationships and contradiction analysis, and production authentication remain incomplete. Contributions must distinguish implemented, proposed, and deferred work and include reproducible validation evidence.
 
 Before opening a pull request, verify the actual build and test commands from the project configuration, run the relevant checks, and summarize limitations honestly.
 
