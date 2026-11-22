@@ -27,3 +27,8 @@ def test_allowlist_rejects_other_hosts():
 def test_allowlist_accepts_exact_host(monkeypatch):
     monkeypatch.setattr("socket.getaddrinfo", lambda *a, **k: [(2, 1, 6, "", ("1.1.1.1", 443))])
     assert validate_url("https://example.org", allowlist={"example.org"}) == "example.org"
+
+
+def test_denylist_rejects_subdomains():
+    with pytest.raises(URLPolicyError, match="denied"):
+        validate_url("https://sub.example.org", denylist={"example.org"})

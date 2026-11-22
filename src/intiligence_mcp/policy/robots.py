@@ -7,10 +7,8 @@ import time
 from urllib.parse import urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
-import httpx
-
+from intiligence_mcp.acquisition.http import AcquisitionError, fetch_response
 from intiligence_mcp.config import settings
-from intiligence_mcp.security.url_policy import validate_url
 
 
 class RobotsPolicyError(RuntimeError):
@@ -38,30 +36,24 @@ class RobotsPolicy:
                 parser, allow_all = cached[1], cached[2]
                 return allow_all if parser is None else parser.can_fetch(settings.user_agent, url)
             robots_url = origin + "/robots.txt"
-            validate_url(
-                robots_url,
-                allow_private=settings.allow_private_networks,
-                allowlist=settings.domains(settings.domain_allowlist),
-                denylist=settings.domains(settings.domain_denylist),
-            )
             try:
-                async with httpx.AsyncClient(
-                    timeout=httpx.Timeout(min(settings.request_timeout_seconds, 10.0)),
-                    follow_redirects=False,
-                    trust_env=False,
-                    headers={"User-Agent": settings.user_agent},
-                ) as client:
-                    response = await client.get(robots_url)
-            except httpx.HTTPError as exc:
-                raise RobotsPolicyError("robots.txt unavailable; acquisition denied") from exc
-            if response.status_code in (404, 410):
+                status, body, _final_url = await fetch_response(
+                    robots_url, max_redirects=0
+                )
+            except AcquisitionError as exc:
+                raise RobotsPolicyError(
+                    "robots.txt unavailable; acquisition denied"
+                ) from exc
+            if status in (404, 410):
                 self._cache[origin] = (time.monotonic() + self._ttl, None, True)
                 return True
-            if response.status_code != 200:
-                raise RobotsPolicyError(f"robots.txt returned {response.status_code}; acquisition denied")
+            if status != 200:
+                raise RobotsPolicyError(
+                    f"robots.txt returned {status}; acquisition denied"
+                )
             parser = RobotFileParser()
             parser.set_url(robots_url)
-            parser.parse(response.text.splitlines())
+            parser.parse(body.splitlines())
             self._cache[origin] = (time.monotonic() + self._ttl, parser, False)
             return parser.can_fetch(settings.user_agent, url)
 
