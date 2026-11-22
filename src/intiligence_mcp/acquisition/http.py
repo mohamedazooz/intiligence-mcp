@@ -1,11 +1,15 @@
-"""Bounded HTTP acquisition with redirect-by-redirect URL validation."""
+"""Bounded HTTP acquisition using DNS-pinned connections and manual redirects."""
 
+from __future__ import annotations
+
+import socket
 from urllib.parse import urljoin
 
-import httpx
+import aiohttp
 
 from intiligence_mcp.acquisition.rate_limit import HostRateLimiter
 from intiligence_mcp.config import settings
+from intiligence_mcp.security.dns_resolver import PinnedPublicResolver
 from intiligence_mcp.security.url_policy import validate_url
 
 _host_limiter = HostRateLimiter(settings.min_host_interval_seconds)
@@ -15,16 +19,33 @@ class AcquisitionError(RuntimeError):
     pass
 
 
-async def fetch_url(url: str) -> tuple[str, str]:
+async def fetch_response(
+    url: str, *, max_redirects: int | None = None
+) -> tuple[int, str, str]:
+    """Return status, decoded body, and final URL without following implicit redirects."""
     current = url
-    headers = {"User-Agent": settings.user_agent, "Accept": "text/html,application/xhtml+xml"}
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(settings.request_timeout_seconds),
-        follow_redirects=False,
+    redirect_limit = settings.max_redirects if max_redirects is None else max_redirects
+    headers = {
+        "User-Agent": settings.user_agent,
+        "Accept": "text/html,application/xhtml+xml",
+    }
+    timeout = aiohttp.ClientTimeout(total=settings.request_timeout_seconds)
+    resolver = PinnedPublicResolver(allow_private=settings.allow_private_networks)
+    connector = aiohttp.TCPConnector(
+        resolver=resolver,
+        use_dns_cache=True,
+        ttl_dns_cache=60,
+        family=socket.AF_UNSPEC,
+    )
+
+    async with aiohttp.ClientSession(
+        connector=connector,
+        timeout=timeout,
         headers=headers,
         trust_env=False,
+        auto_decompress=True,
     ) as client:
-        for hop in range(settings.max_redirects + 1):
+        for hop in range(redirect_limit + 1):
             host = validate_url(
                 current,
                 allow_private=settings.allow_private_networks,
@@ -33,25 +54,40 @@ async def fetch_url(url: str) -> tuple[str, str]:
             )
             await _host_limiter.wait(host)
             try:
-                async with client.stream("GET", current) as response:
-                    if response.is_redirect:
-                        if hop >= settings.max_redirects:
+                async with client.get(current, allow_redirects=False) as response:
+                    if response.status in {301, 302, 303, 307, 308}:
+                        if hop >= redirect_limit:
                             raise AcquisitionError("Redirect limit exceeded")
-                        location = response.headers.get("location")
+                        location = response.headers.get("Location")
                         if not location:
                             raise AcquisitionError("Redirect missing Location header")
                         current = urljoin(current, location)
                         continue
-                    response.raise_for_status()
-                    chunks, total = [], 0
-                    async for chunk in response.aiter_bytes():
+
+                    chunks: list[bytes] = []
+                    total = 0
+                    async for chunk in response.content.iter_chunked(64 * 1024):
                         total += len(chunk)
                         if total > settings.max_response_bytes:
-                            raise AcquisitionError("Response exceeded configured size limit")
+                            raise AcquisitionError(
+                                "Response exceeded configured size limit"
+                            )
                         chunks.append(chunk)
-                    return b"".join(chunks).decode(
-                        response.encoding or "utf-8", errors="replace"
-                    ), str(response.url)
-            except httpx.HTTPError as exc:
-                raise AcquisitionError(f"HTTP acquisition failed: {type(exc).__name__}") from exc
+                    body = b"".join(chunks).decode(
+                        response.charset or "utf-8", errors="replace"
+                    )
+                    return response.status, body, str(response.url)
+            except AcquisitionError:
+                raise
+            except (aiohttp.ClientError, TimeoutError) as exc:
+                raise AcquisitionError(
+                    f"HTTP acquisition failed: {type(exc).__name__}"
+                ) from exc
     raise AcquisitionError("Unable to fetch URL")
+
+
+async def fetch_url(url: str) -> tuple[str, str]:
+    status, body, final_url = await fetch_response(url)
+    if status < 200 or status >= 300:
+        raise AcquisitionError(f"HTTP acquisition returned status {status}")
+    return body, final_url

@@ -37,7 +37,7 @@ def validate_url(
         if not parsed.hostname or parsed.username or parsed.password:
             raise URLPolicyError("URL must contain a host and no embedded credentials")
         host = parsed.hostname.encode("idna").decode("ascii").lower().rstrip(".")
-        if host in (denylist or set()):
+        if any(host == denied or host.endswith("." + denied) for denied in (denylist or set())):
             raise URLPolicyError("Host is denied by policy")
         if (
             allowlist
@@ -62,7 +62,7 @@ def validate_url(
             records = socket.getaddrinfo(
                 host, port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM
             )
-            addresses = {record[4][0].split("%", 1)[0] for record in records}
+            addresses = {str(record[4][0]).split("%", 1)[0] for record in records}
         except socket.gaierror as exc:
             raise URLPolicyError("Host DNS resolution failed") from exc
     if not addresses or any(not _is_public_ip(address) for address in addresses):
