@@ -39,3 +39,8 @@ OpenCTI and MISP remain separate systems with separate credentials, access contr
 ## 8. Vector retrieval
 
 PostgreSQL remains authoritative. Qdrant, if adopted, is a rebuildable derived index keyed to canonical IDs and embedding version. Updates/deletions must propagate. Benchmark recall, precision, tenant filters and stale-index behavior first.
+
+
+## Crawl4AI security gate
+
+The upstream changelog records a security release in v0.9.3 that addressed multiple PDF-processing and Docker Playground issues, including an unsafe PDF extraction path and arbitrary local image-write configuration from untrusted request data. Do not expose the Crawl4AI Docker API publicly. Pin a reviewed release, restrict request schemas, disable unsafe extraction options for untrusted input, enforce egress and filesystem isolation, and rerun upstream security tests before enabling it. Recheck current advisories at the exact commit selected.

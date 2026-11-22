@@ -9,7 +9,7 @@ Initial screening only. Recheck exact release, file headers, transitive dependen
 | Playwright | Apache-2.0 | Package dependency | Review browser binaries/notices |
 | SearXNG | AGPL-3.0 | Prefer separate service; legal review before modification | Verify network/distribution obligations |
 | Firecrawl | AGPL-3.0 listing | Separate service or legal-approved use | Check edition, current license and hosted terms |
-| Docling | Verify exact release and model components | Dependency after full review | Check OCR/model licenses |
+| Docling | MIT codebase; model licenses are separate | Dependency candidate | Check OCR/model licenses and transitive packages |
 | Qdrant | Apache-2.0 | Separate service/dependency | Verify client and deployment artifacts |
 | OpenCTI Community | Apache-2.0; Enterprise components separate | Community API/service boundary | Inspect per-file headers and edition boundaries |
 | MISP core | AGPL-3.0 | Separate service/API | Preserve terms if modifying core |
