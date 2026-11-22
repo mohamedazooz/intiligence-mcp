@@ -26,6 +26,7 @@ The agent guide sets an initial target of approximately **2 vCPU and 6 GB RAM**.
 | `INTILIGENCE_ALLOW_PRIVATE_NETWORKS` | `false` | Permit private target addresses | Keep `false` for public research acquisition; never enable in the reference egress profile. |
 | `INTILIGENCE_REDIS_URL` | empty | Redis connection URL for shared host pacing | Optional outside multi-worker deployments; use `rediss://` for remote TLS endpoints and keep credentials in secrets. |
 | `INTILIGENCE_REQUIRE_SHARED_RATE_LIMIT` | `false` | Require Redis-backed host pacing | Set to `true` in the Compose profile; missing Redis configuration prevents server startup. |
+| `INTILIGENCE_REQUIRE_SHARED_ROBOTS_CACHE` | `false` | Require Redis-backed shared robots policy | Set to `true` in the Compose profile; Redis errors deny acquisition instead of falling back to a local cache. |
 
 Never commit real credentials. See [isolated egress profile](../deploy/EGRESS_SECURITY.md) for the reference network topology and remaining deployment gates.
 

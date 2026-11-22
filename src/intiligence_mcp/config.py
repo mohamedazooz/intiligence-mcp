@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     require_egress_proxy: bool = False
     redis_url: str = ""
     require_shared_rate_limiter: bool = False
+    require_shared_robots_cache: bool = False
     domain_allowlist: str = ""
     domain_denylist: str = ""
 

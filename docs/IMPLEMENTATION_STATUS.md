@@ -19,7 +19,7 @@
 ## Latest local verification
 
 - Python: 3.13
-- `py -3.13 -m pytest -q`: 66 passed
+- `py -3.13 -m pytest -q`: 71 passed
 - `py -3.13 -m ruff check src/intiligence_mcp tests`: passed
 - `py -3.13 -m mypy src/intiligence_mcp`: passed
 - `docker compose -f compose.yaml config --quiet`: passed (static configuration validation only; Docker daemon unavailable)
@@ -31,7 +31,7 @@
 
 1. The application HTTP and robots.txt paths use `PinnedPublicResolver`: aiohttp connects to the exact numeric addresses returned by the resolver after public-IP validation, retaining the original hostname for Host/TLS verification. The resolver rejects the entire answer set if any address is non-public (unless `INTILIGENCE_ALLOW_PRIVATE_NETWORKS=true` is explicitly configured). A Docker reference profile now adds an isolated app network, required Squid proxy routing, and destination CIDR deny rules. The Docker daemon was unavailable during implementation, so image builds, runtime behavior, and live Squid ACL enforcement have not been verified. Production still requires host/cloud egress firewall policy and staging validation.
 2. Browser automation is not enabled. Playwright must run in an isolated worker/container with enforced network egress policy; application-level URL validation alone cannot constrain browser subresource requests.
-3. Redis-backed shared host pacing is implemented and enabled in the Compose profile. The robots.txt cache remains process-local; multi-worker deployments still need a shared robots cache. Redis is not yet verified against a live server in this environment.
+3. Redis-backed shared host pacing and shared robots-policy caching are implemented and enabled in the Compose profile. Redis is not yet verified against a live server in this environment; both shared-state paths require staging integration tests.
 4. Source-domain authorization workflow, immutable evidence capsules, PostgreSQL migrations, tenant authentication, reviewer attribution, and durable job orchestration remain to be implemented.
 5. CAPTCHA solver provider integrations are not active. Any future solver must be gated to explicitly authorized domains and operator-approved test workflows.
 6. Crawl4AI has been cloned and metadata-inspected but is not vendored. Its overlapping browser/crawling stack, large dependency surface, and stealth/anti-bot related functionality require file-level review before selecting safe modules.
@@ -40,7 +40,7 @@
 ## Next implementation sequence
 
 1. Validate the Docker egress profile with a running Docker daemon and live Squid ACL tests, then enforce matching host/cloud egress firewall rules in staging; application-level HTTP/robots DNS pinning is implemented.
-2. Validate Redis-backed pacing against a live Redis service and implement a shared robots.txt cache for multi-worker deployments.
+2. Validate Redis-backed host pacing and robots-policy caching against a live Redis service, including lock contention, TTL expiry, and Redis restart behavior.
 3. Add an isolated Playwright browser worker with DNS/egress, download, subresource, and filesystem controls.
 4. Add immutable evidence capsules, reviewer attribution, PostgreSQL migrations, tenant authentication, and durable job orchestration.
 5. Add Docling as a separately isolated document/OCR pipeline; benchmark against the existing parser.
@@ -105,4 +105,9 @@ The ledger is an initial structured claim register, not automated fact verificat
 - Added unit tests for Lua invocation arguments, normalized/hashed host keys, wait scheduling, Redis URL validation, required-backend startup, and fail-closed behavior on Redis outage.
 - Python 3.13 verification after this slice: 66 tests passed; Ruff, mypy, pip check, Compose static validation, and `git diff --check` passed.
 - No live Redis server or Docker engine was available; Redis protocol/runtime behavior and container networking still require staging verification.
-- The robots.txt policy cache remains process-local and is the next shared-state gap.
+- Added a shared Redis robots cache keyed by normalized origin, with a bounded distributed lock to avoid duplicate concurrent robots.txt fetches across workers.
+- Cache entries preserve the robots status/body and use the configured TTL. 404/410 are shared as allow-all; other unexpected statuses and Redis failures fail closed.
+- Added `INTILIGENCE_REQUIRE_SHARED_ROBOTS_CACHE`; required mode fails during server initialization if Redis is not configured. Redis cache errors do not fall back to process-local policy.
+- Added tests for cross-call cache reuse, 404/410 semantics, required configuration, and fail-closed Redis outage behavior.
+- Python 3.13 verification after shared robots support: 71 tests passed; Ruff, mypy, pip check, Compose static validation, and `git diff --check` passed.
+- No live Redis server or Docker engine was available; Redis protocol/runtime behavior and distributed lock behavior still require staging verification.
