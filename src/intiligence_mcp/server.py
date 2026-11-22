@@ -1,5 +1,8 @@
 """MCP server exposing bounded research acquisition tools."""
 
+import sys
+from typing import BinaryIO
+
 from mcp.server.fastmcp import FastMCP
 
 from intiligence_mcp.acquisition.captcha.detector import detect_challenge
@@ -28,6 +31,9 @@ async def research_fetch(url: str) -> dict:
         allow_private=settings.allow_private_networks,
         allowlist=settings.domains(settings.domain_allowlist),
         denylist=settings.domains(settings.domain_denylist),
+        allow_temporary_dns_failure=(
+            settings.require_egress_proxy and bool(settings.egress_proxy_url.strip())
+        ),
     )
     if not await robots_policy.can_fetch(url):
         return {"url": url, "status": "blocked_by_robots_txt"}
@@ -63,6 +69,9 @@ async def research_check_robots(url: str) -> dict:
         allow_private=settings.allow_private_networks,
         allowlist=settings.domains(settings.domain_allowlist),
         denylist=settings.domains(settings.domain_denylist),
+        allow_temporary_dns_failure=(
+            settings.require_egress_proxy and bool(settings.egress_proxy_url.strip())
+        ),
     )
     allowed = await robots_policy.can_fetch(url)
     return {"url": url, "allowed": allowed, "policy": "robots.txt"}
@@ -76,6 +85,9 @@ async def research_register_source(url: str, title: str | None = None) -> dict:
         allow_private=settings.allow_private_networks,
         allowlist=settings.domains(settings.domain_allowlist),
         denylist=settings.domains(settings.domain_denylist),
+        allow_temporary_dns_failure=(
+            settings.require_egress_proxy and bool(settings.egress_proxy_url.strip())
+        ),
     )
     record = _source_registry.add(url, title)
     return {
@@ -130,7 +142,17 @@ async def research_review_claim(claim_id: str, status: str) -> dict:
     }
 
 
+def _strip_initial_utf8_bom(stream: BinaryIO) -> None:
+    """Ignore a UTF-8 BOM some Windows stdio launchers prepend to the first JSON-RPC frame."""
+    peek = getattr(stream, "peek", None)
+    if callable(peek) and peek(3)[:3] == b"\xef\xbb\xbf":
+        stream.read(3)
+
+
 def main() -> None:
+    stdin_buffer = getattr(sys.stdin, "buffer", None)
+    if stdin_buffer is not None:
+        _strip_initial_utf8_bom(stdin_buffer)
     mcp.run()
 
 

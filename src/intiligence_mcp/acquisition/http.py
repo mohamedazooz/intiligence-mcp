@@ -63,6 +63,9 @@ async def fetch_response(
                 allow_private=settings.allow_private_networks,
                 allowlist=settings.domains(settings.domain_allowlist),
                 denylist=settings.domains(settings.domain_denylist),
+                allow_temporary_dns_failure=(
+                    settings.require_egress_proxy and bool(settings.egress_proxy_url.strip())
+                ),
             )
             try:
                 await _host_limiter.wait(host)

@@ -8,7 +8,6 @@ import os
 import stat
 import sys
 from configparser import Error as ConfigError
-from importlib.metadata import version
 from pathlib import Path
 from platform import python_version
 
@@ -25,6 +24,7 @@ from .cli_utils import (
     url_processing_pipeline,
     write_result,
 )
+from . import __version__
 from .settings import PARALLEL_CORES, SUPPORTED_FMT_CLI, Extractor, use_config
 
 # options taking a URL as optional value
@@ -183,7 +183,7 @@ def add_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         "--version",
         help="show version information and exit",
         action="version",
-        version=f"Trafilatura {version('trafilatura')} - Python {python_version()}",
+        version=f"Trafilatura {__version__} - Python {python_version()}",
     )
 
     return parser

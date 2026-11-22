@@ -10,18 +10,19 @@ from collections.abc import Iterator
 from copy import deepcopy
 from html import unescape
 from html.entities import html5
-from importlib.metadata import version
 from io import StringIO
 from json import dumps as json_dumps
 from pathlib import Path
 
 from lxml.etree import DTD, Element, SubElement, XMLParser, _Element, fromstring, tostring
 
+from . import __version__
+
 from .settings import INLINE_CARRIED, INLINE_CONSUMING, INLINE_FORMATTABLE, Document, Extractor
 from .utils import sanitize, sanitize_tree, text_chars_test
 
 LOGGER = logging.getLogger(__name__)
-PKG_VERSION = version("trafilatura")
+PKG_VERSION = __version__
 
 # validation
 TEI_SCHEMA = str(Path(__file__).parent / "data" / "tei_corpus.dtd")
