@@ -62,7 +62,7 @@ See [C4 architecture](docs/ARCHITECTURE.md) for the system context, container vi
 
 ## MCP interface
 
-The MCP server currently exposes `research_fetch`, `research_check_robots`, `research_register_source`, and `research_get_evidence`. `research_fetch` acquires a public HTTP(S) page, detects access challenges, extracts text, registers the source, and persists a content-addressed evidence record. These tools are early-stage and inherit the security limitations documented in [runtime status](docs/IMPLEMENTATION_STATUS.md).
+The MCP server currently exposes `research_fetch`, `research_check_robots`, `research_register_source`, `research_get_evidence`, `research_create_claim`, and `research_review_claim`. `research_fetch` acquires a public HTTP(S) page, detects access challenges, extracts text, registers the source, and persists a content-addressed evidence record. These tools are early-stage and inherit the security limitations documented in [runtime status](docs/IMPLEMENTATION_STATUS.md).
 
 ## Repository map
 
@@ -146,7 +146,7 @@ See [ROADMAP.md](docs/ROADMAP.md) for proposed deliverables and acceptance crite
 
 ## Current status and contribution
 
-This repository is at an early runtime stage. The current local baseline is 19 passing unit tests, clean Ruff checks, successful Python 3.13 editable installation, and no broken package requirements. DNS rebinding protection, isolated browser execution, shared/distributed robots policy, PostgreSQL persistence, evidence review/claim ledger, and production authentication remain incomplete. Contributions must distinguish implemented, proposed, and deferred work and include reproducible validation evidence.
+This repository is at an early runtime stage. The current local baseline is 22 passing unit tests, clean Ruff checks, successful Python 3.13 editable installation, and no broken package requirements. DNS rebinding protection, isolated browser execution, shared/distributed robots policy, PostgreSQL persistence, reviewer identity/approval audit, advanced claim relationships and contradiction analysis, and production authentication remain incomplete. Contributions must distinguish implemented, proposed, and deferred work and include reproducible validation evidence.
 
 Before opening a pull request, verify the actual build and test commands from the project configuration, run the relevant checks, and summarize limitations honestly.
 

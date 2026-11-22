@@ -58,3 +58,15 @@
 - Robots rules are crawler coordination policy, not authorization or access control. Domain allow/deny policy and operator authorization still apply independently.
 - The robots cache is process-local and resets on restart. A multi-worker deployment needs a shared cache.
 - This slice does not close DNS rebinding. HTTP transport DNS pinning or network egress enforcement remains a production blocker.
+
+
+## Claim ledger slice (2026-11-22)
+
+- Added SQLite `claims` and `claim_evidence` tables with foreign-key enforcement.
+- Claim statements are normalized and assigned deterministic SHA-256 IDs.
+- Evidence references must point to existing evidence records; duplicate links are idempotent.
+- Review states are constrained to `unreviewed`, `supported`, `contradicted`, `inconclusive`, and `rejected`.
+- Added MCP tools `research_create_claim` and `research_review_claim`.
+- Latest local validation: 22 tests passed; Ruff clean; `git diff --check` clean.
+
+The ledger is an initial structured claim register, not automated fact verification. Status transitions currently accept the allowed target states without enforcing a reviewer identity or approval workflow; production authorization/audit attribution remains required.

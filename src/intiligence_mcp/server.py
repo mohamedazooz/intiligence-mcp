@@ -9,11 +9,13 @@ from intiligence_mcp.config import settings
 from intiligence_mcp.extraction.trafilatura_adapter import extract_main_text
 from intiligence_mcp.policy.robots import robots_policy
 from intiligence_mcp.security.url_policy import validate_url
+from intiligence_mcp.storage.claims import ClaimLedger
 from intiligence_mcp.storage.evidence import EvidenceStore
 from intiligence_mcp.storage.source_registry import SourceRegistry
 
 _source_registry = SourceRegistry(settings.source_registry_path)
 _evidence_store = EvidenceStore(settings.source_registry_path)
+_claim_ledger = ClaimLedger(settings.source_registry_path)
 
 mcp = FastMCP("Intiligence MCP")
 
@@ -98,6 +100,33 @@ async def research_get_evidence(evidence_id: str) -> dict:
         "content_sha256": record.content_sha256,
         "captured_at": record.captured_at,
         "content": record.content,
+    }
+
+
+@mcp.tool()
+async def research_create_claim(statement: str, evidence_ids: list[str]) -> dict:
+    """Create a normalized research claim linked to existing evidence records."""
+    record = _claim_ledger.create(statement, tuple(evidence_ids))
+    return {
+        "claim_id": record.claim_id,
+        "statement": record.statement,
+        "status": record.status,
+        "evidence_ids": list(record.evidence_ids),
+        "created_at": record.created_at,
+    }
+
+
+@mcp.tool()
+async def research_review_claim(claim_id: str, status: str) -> dict:
+    """Set a claim review state: supported, contradicted, inconclusive, or rejected."""
+    record = _claim_ledger.set_status(claim_id, status)
+    if record is None:
+        return {"status": "not_found", "claim_id": claim_id}
+    return {
+        "claim_id": record.claim_id,
+        "statement": record.statement,
+        "review_status": record.status,
+        "evidence_ids": list(record.evidence_ids),
     }
 
 
