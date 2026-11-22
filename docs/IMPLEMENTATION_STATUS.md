@@ -7,7 +7,7 @@
 - MCP tools: `research_fetch`, `research_check_robots`, `research_register_source`, `research_get_evidence`, `research_create_claim`, and `research_review_claim`.
 - Bounded HTTP acquisition: manual redirect handling, per-hop URL checks, response byte cap, request timeout, environment proxy inheritance disabled, and aiohttp DNS resolver pinning (validated numeric addresses are the addresses handed to the connector).
 - URL policy: HTTP(S)-only, embedded-credential rejection, domain allow/deny lists (including denied subdomains), and DNS/IP checks.
-- Process-local per-host request pacing, configurable with `INTILIGENCE_MIN_HOST_INTERVAL_SECONDS`.
+- Per-host request pacing: process-local by default, with optional Redis-backed cross-process pacing using an atomic Lua reservation script and Redis server time. Redis failures fail closed when the shared backend is configured.
 - SQLite source registry with canonical URL deduplication, stable SHA-256 source IDs, host index, first-seen timestamp, and WAL mode.
 - Append-only-through-API evidence store with source foreign keys, content SHA-256, deterministic evidence IDs, capture timestamps, and deduplication.
 - Trafilatura 2.3.1 source vendored at pinned commit `65eac050b7a2961bac9aefdfb7514121dd7382ba` under `src/intiligence_mcp/_vendor/trafilatura`, with Apache-2.0 license and provenance retained.
@@ -19,7 +19,7 @@
 ## Latest local verification
 
 - Python: 3.13
-- `py -3.13 -m pytest -q`: 33 passed
+- `py -3.13 -m pytest -q`: 66 passed
 - `py -3.13 -m ruff check src/intiligence_mcp tests`: passed
 - `py -3.13 -m mypy src/intiligence_mcp`: passed
 - `docker compose -f compose.yaml config --quiet`: passed (static configuration validation only; Docker daemon unavailable)
@@ -31,7 +31,7 @@
 
 1. The application HTTP and robots.txt paths use `PinnedPublicResolver`: aiohttp connects to the exact numeric addresses returned by the resolver after public-IP validation, retaining the original hostname for Host/TLS verification. The resolver rejects the entire answer set if any address is non-public (unless `INTILIGENCE_ALLOW_PRIVATE_NETWORKS=true` is explicitly configured). A Docker reference profile now adds an isolated app network, required Squid proxy routing, and destination CIDR deny rules. The Docker daemon was unavailable during implementation, so image builds, runtime behavior, and live Squid ACL enforcement have not been verified. Production still requires host/cloud egress firewall policy and staging validation.
 2. Browser automation is not enabled. Playwright must run in an isolated worker/container with enforced network egress policy; application-level URL validation alone cannot constrain browser subresource requests.
-3. Per-host pacing is process-local. Multi-worker deployments require a shared/distributed limiter.
+3. Redis-backed shared host pacing is implemented and enabled in the Compose profile. The robots.txt cache remains process-local; multi-worker deployments still need a shared robots cache. Redis is not yet verified against a live server in this environment.
 4. Source-domain authorization workflow, immutable evidence capsules, PostgreSQL migrations, tenant authentication, reviewer attribution, and durable job orchestration remain to be implemented.
 5. CAPTCHA solver provider integrations are not active. Any future solver must be gated to explicitly authorized domains and operator-approved test workflows.
 6. Crawl4AI has been cloned and metadata-inspected but is not vendored. Its overlapping browser/crawling stack, large dependency surface, and stealth/anti-bot related functionality require file-level review before selecting safe modules.
@@ -40,7 +40,7 @@
 ## Next implementation sequence
 
 1. Validate the Docker egress profile with a running Docker daemon and live Squid ACL tests, then enforce matching host/cloud egress firewall rules in staging; application-level HTTP/robots DNS pinning is implemented.
-2. Add shared/distributed per-domain pacing and robots cache for multi-worker deployments.
+2. Validate Redis-backed pacing against a live Redis service and implement a shared robots.txt cache for multi-worker deployments.
 3. Add an isolated Playwright browser worker with DNS/egress, download, subresource, and filesystem controls.
 4. Add immutable evidence capsules, reviewer attribution, PostgreSQL migrations, tenant authentication, and durable job orchestration.
 5. Add Docling as a separately isolated document/OCR pipeline; benchmark against the existing parser.
@@ -91,6 +91,18 @@ The ledger is an initial structured claim register, not automated fact verificat
 - The proxy is not published on a host port, allows only the application subnet and web ports, and denies special-use IPv4/IPv6 destination ranges including loopback, RFC1918, link-local, CGNAT, metadata/link-local ranges, documentation, multicast, and reserved ranges.
 - Added `INTILIGENCE_EGRESS_PROXY_URL` and `INTILIGENCE_REQUIRE_EGRESS_PROXY`. Required-proxy mode fails closed when no proxy URL is configured. HTTP and robots requests pass the configured proxy explicitly; environment proxy variables remain ignored.
 - Added tests for required-proxy fail-closed behavior, proxy-origin URL validation (scheme, credentials, path, port normalization), and an HTTP proxy integration test proving requests use the configured proxy endpoint.
-- Local verification: 33 tests passed; Ruff, mypy, pip check, and git diff checks passed.
+- Added static CIDR-policy tests covering 20 representative special-use IPv4/IPv6 destinations and three representative public addresses; the tests parse the Squid ACL source directly.
+- Local verification for the egress-only slice: 56 tests passed; Ruff, mypy, pip check, and git diff checks passed.
 - Docker CLI and Compose are installed. `docker compose -f compose.yaml config --quiet` passed, but the Docker Desktop Linux engine was unavailable. Therefore image builds, Squid startup, and live ACL/egress tests could not be verified. No container or VPS deployment was performed.
 - Deployment instructions and explicit remaining gates are documented in `deploy/EGRESS_SECURITY.md`.
+
+## Redis shared host-pacing slice (2026-11-22)
+
+- Added an optional `distributed` dependency extra containing redis-py; the container image installs this extra.
+- Added `RedisHostRateLimiter` using a single atomic Lua reservation script. The script uses Redis `TIME` (not client clocks), stores each normalized host under a SHA-256 key, reserves serialized request slots, and sets a TTL long enough to cover queued reservations.
+- Added `INTILIGENCE_REDIS_URL` and `INTILIGENCE_REQUIRE_SHARED_RATE_LIMIT`. Required mode fails during server initialization if the URL is missing; configured Redis failures fail acquisition closed and never silently fall back to process-local pacing.
+- Added a Redis service on a dedicated internal-only network in Compose. Only the MCP service joins that network; Redis has no published port and is not connected to the egress proxy network.
+- Added unit tests for Lua invocation arguments, normalized/hashed host keys, wait scheduling, Redis URL validation, required-backend startup, and fail-closed behavior on Redis outage.
+- Python 3.13 verification after this slice: 66 tests passed; Ruff, mypy, pip check, Compose static validation, and `git diff --check` passed.
+- No live Redis server or Docker engine was available; Redis protocol/runtime behavior and container networking still require staging verification.
+- The robots.txt policy cache remains process-local and is the next shared-state gap.

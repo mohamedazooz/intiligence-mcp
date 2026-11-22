@@ -9,7 +9,7 @@ WORKDIR /app
 RUN groupadd --gid 10001 app && useradd --uid 10001 --gid app --create-home --shell /usr/sbin/nologin app
 COPY pyproject.toml README.md ./
 COPY src ./src
-RUN python -m pip install --no-cache-dir .
+RUN python -m pip install --no-cache-dir ".[distributed]"
 RUN mkdir -p /app/.data && chown -R app:app /app
 
 USER 10001:10001
