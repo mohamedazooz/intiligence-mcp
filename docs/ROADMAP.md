@@ -33,3 +33,8 @@ Add telemetry, dashboards, alerts, backup/restore, and incident runbooks. Comple
 ## Prioritization
 
 Prioritize correctness, provenance, safe acquisition, and stable contracts before provider breadth or advanced autonomy. Do not add infrastructure without a measured requirement and documented decision.
+
+
+## Detailed delivery plan
+
+The phase-level engineering plan and acceptance evidence are maintained in [research-pack/roadmap/MASTER_ROADMAP.md](research-pack/roadmap/MASTER_ROADMAP.md), [IMPLEMENTATION_BACKLOG.md](research-pack/roadmap/IMPLEMENTATION_BACKLOG.md) and [ACCEPTANCE_GATES.md](research-pack/roadmap/ACCEPTANCE_GATES.md). These are proposed work items, not claims of completed implementation.

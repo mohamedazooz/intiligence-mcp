@@ -139,3 +139,7 @@ Before opening a pull request, verify the actual build and test commands from th
 ## License
 
 No license is declared in the repository snapshot reviewed for this README. Until a license is added by the project owner, do not assume that the code or documentation is offered under an open-source license.
+
+## Research and implementation planning
+
+The expanded [Intiligence MCP research pack](docs/research-pack/README.md) contains the upstream project inventory, integration decisions, license and security reviews, evidence model, MCP contracts, test strategy, operational plan and phased roadmap.

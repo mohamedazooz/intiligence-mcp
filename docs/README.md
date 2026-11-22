@@ -26,3 +26,8 @@ This documentation describes the target design for Intiligence MCP. It distingui
 - **Deferred:** postponed pending a measured need or review.
 
 A design document is not proof of implementation. Record implementation evidence in code references, tests, and release notes.
+
+
+## Research and Open-Source Engineering Pack
+
+See [Intiligence MCP research pack](research-pack/README.md) for the expanded upstream project portfolio, source-audit manifest, integration blueprints, evidence data model, MCP tool contract, security matrices, test plan, operations blueprint, master roadmap, implementation backlog and release acceptance gates.
