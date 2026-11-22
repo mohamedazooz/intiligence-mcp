@@ -2,7 +2,7 @@
 
 **An evidence-first research and knowledge layer for AI agents, exposed through the Model Context Protocol (MCP).**
 
-> Project status: bootstrap / architecture definition. This repository currently contains the agent operating guide and project documentation. The capabilities described as target behavior below are design goals, not claims that production implementations already exist.
+> Project status: early runtime implementation. The repository now contains a working Python MCP package with bounded HTTP acquisition, vendored extraction, source registration, and content-addressed evidence storage. It is not production-hardened; see [runtime status](docs/IMPLEMENTATION_STATUS.md) for verified capabilities and blockers.
 
 ## Why Intiligence MCP?
 
@@ -62,7 +62,7 @@ See [C4 architecture](docs/ARCHITECTURE.md) for the system context, container vi
 
 ## MCP interface
 
-The intended interface is an MCP server that exposes research and evidence workflows to compatible AI clients. Tool names, input schemas, output contracts, and implementation status must be documented from the actual server code as those interfaces are implemented. This bootstrap README deliberately does not invent tool names or claim that planned tools are already available.
+The MCP server currently exposes `research_fetch`, `research_check_robots`, `research_register_source`, `research_get_evidence`, `research_create_claim`, and `research_review_claim`. `research_fetch` acquires a public HTTP(S) page, detects access challenges, extracts text, registers the source, and persists a content-addressed evidence record. These tools are early-stage and inherit the security limitations documented in [runtime status](docs/IMPLEMENTATION_STATUS.md).
 
 ## Repository map
 
@@ -70,6 +70,10 @@ The intended interface is an MCP server that exposes research and evidence workf
 .
 ├── AGENTS.md                 # Mandatory rules for contributors and coding agents
 ├── README.md                 # Project overview and entry point
+├── pyproject.toml            # Python package, runtime dependencies, and tooling
+├── src/intiligence_mcp/      # MCP runtime, acquisition, security, extraction, storage
+├── tests/unit/               # Unit and regression tests
+├── third_party/              # Vendored license and provenance notices
 └── docs/
     ├── README.md             # Documentation index
     ├── ARCHITECTURE.md       # C4 architecture and component boundaries
@@ -86,6 +90,7 @@ The intended interface is an MCP server that exposes research and evidence workf
 
 - [Agent operating rules](AGENTS.md)
 - [Documentation index](docs/README.md)
+- [Runtime implementation status](docs/IMPLEMENTATION_STATUS.md)
 - [C4 architecture](docs/ARCHITECTURE.md)
 - [Evidence model](docs/EVIDENCE_MODEL.md)
 - [Web ingestion pipeline](docs/WEB_INGESTION.md)
@@ -103,7 +108,16 @@ The intended interface is an MCP server that exposes research and evidence workf
 - Use explicit timeouts, bounded concurrency, retries with backoff, and resource limits.
 - Do not add infrastructure without documenting the requirement, operational cost, and fallback path.
 
-The precise runtime, package manager, commands, environment variables, and deployment manifests must be added after they are confirmed in the implementation. No install or run command is fabricated here.
+### Local setup (Python 3.12–3.14)
+
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+intiligence-mcp
+```
+
+The server uses stdio transport for MCP clients. Configure optional runtime settings with the `INTILIGENCE_` environment prefix; defaults and known deployment limitations are documented in [runtime status](docs/IMPLEMENTATION_STATUS.md).
 
 ## Security and responsible use
 
@@ -132,7 +146,7 @@ See [ROADMAP.md](docs/ROADMAP.md) for proposed deliverables and acceptance crite
 
 ## Current status and contribution
 
-This repository is at an early documentation/bootstrap stage. The presence of an architecture or roadmap document does not mean the corresponding service is implemented. Contributions should identify whether a change is implemented, proposed, or deferred, include validation evidence, and update the relevant documentation.
+This repository is at an early runtime stage. The current local baseline is 22 passing unit tests, clean Ruff checks, successful Python 3.13 editable installation, and no broken package requirements. DNS rebinding protection, isolated browser execution, shared/distributed robots policy, PostgreSQL persistence, reviewer identity/approval audit, advanced claim relationships and contradiction analysis, and production authentication remain incomplete. Contributions must distinguish implemented, proposed, and deferred work and include reproducible validation evidence.
 
 Before opening a pull request, verify the actual build and test commands from the project configuration, run the relevant checks, and summarize limitations honestly.
 
