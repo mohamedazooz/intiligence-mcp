@@ -75,6 +75,7 @@ services:
       INTILIGENCE_SOURCE_REGISTRY_PATH: /app/.data/sources.sqlite3
       INTILIGENCE_REDIS_URL: redis://redis:6379/0
       INTILIGENCE_REQUIRE_SHARED_RATE_LIMIT: "true"
+      INTILIGENCE_REQUIRE_SHARED_ROBOTS_CACHE: "true"
     volumes:
       - intiligence_data:/app/.data
     depends_on:
