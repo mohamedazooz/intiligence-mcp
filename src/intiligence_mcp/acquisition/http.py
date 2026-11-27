@@ -1,8 +1,10 @@
-"""Bounded HTTP acquisition using DNS-pinned connections and manual redirects."""
+"""Bounded HTTP acquisition with DNS pinning, redirect checks, and provenance capture."""
 
 from __future__ import annotations
 
 import socket
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from urllib.parse import urljoin
 
 import aiohttp
@@ -18,28 +20,76 @@ _host_limiter = create_host_rate_limiter(
     require_shared=settings.require_shared_rate_limiter,
 )
 
+PolicyCheck = Callable[[str], Awaitable[bool]]
+_SAFE_RESPONSE_HEADERS = {
+    "content-type",
+    "content-length",
+    "content-encoding",
+    "etag",
+    "last-modified",
+    "date",
+    "cache-control",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class FetchResult:
+    """A bounded HTTP result; body contains decompressed entity bytes."""
+
+    status: int
+    body: bytes
+    text: str
+    final_url: str
+    media_type: str | None
+    response_headers: dict[str, str]
+    redirect_chain: tuple[dict[str, str | int], ...]
+
 
 class AcquisitionError(RuntimeError):
-    pass
+    """An acquisition failed or violated a configured safety bound."""
 
 
-async def fetch_response(
-    url: str, *, max_redirects: int | None = None, accept: str | None = None
-) -> tuple[int, str, str]:
-    """Return status, decoded body, and final URL without following implicit redirects."""
+class AcquisitionPolicyDenied(AcquisitionError):
+    """A policy check denied this URL before its response was requested."""
+
+    def __init__(self, url: str) -> None:
+        super().__init__("Acquisition denied by source policy")
+        self.url = url
+
+
+async def fetch_response_details(
+    url: str,
+    *,
+    max_redirects: int | None = None,
+    accept: str | None = None,
+    policy_check: PolicyCheck | None = None,
+    conditional_headers: dict[str, str] | None = None,
+) -> FetchResult:
+    """Fetch one page and preserve safe response metadata and redirect provenance.
+
+    If policy_check is supplied, it is called for the initial URL and every
+    redirect target before the request is made. Robots.txt retrieval itself
+    uses the compatibility wrapper without a policy callback to avoid recursion.
+    """
     current = url
     redirect_limit = settings.max_redirects if max_redirects is None else max_redirects
+    if redirect_limit < 0:
+        raise ValueError("max_redirects must be non-negative")
     headers = {
         "User-Agent": settings.user_agent,
         "Accept": accept or "text/html,application/xhtml+xml",
     }
+    allowed_conditionals = {"If-None-Match", "If-Modified-Since"}
+    for key, value in (conditional_headers or {}).items():
+        if key not in allowed_conditionals or not isinstance(value, str) or len(value) > 1024:
+            raise ValueError("Only bounded HTTP cache validators are accepted")
+        headers[key] = value
     if settings.require_egress_proxy and not settings.egress_proxy_url.strip():
-        raise AcquisitionError("Egress proxy is required but not configured; outbound request denied")
+        raise AcquisitionError(
+            "Egress proxy is required but not configured; outbound request denied"
+        )
 
     timeout = aiohttp.ClientTimeout(total=settings.request_timeout_seconds)
-    # When proxying, the connector resolves only the proxy endpoint. The proxy
-    # independently enforces destination-IP ACLs; the target URL is still
-    # resolved and checked by validate_url before every request/redirect hop.
     resolver = PinnedPublicResolver(
         allow_private=settings.allow_private_networks or bool(settings.egress_proxy_url.strip())
     )
@@ -49,6 +99,7 @@ async def fetch_response(
         ttl_dns_cache=60,
         family=socket.AF_UNSPEC,
     )
+    redirect_chain: list[dict[str, str | int]] = []
 
     async with aiohttp.ClientSession(
         connector=connector,
@@ -67,10 +118,14 @@ async def fetch_response(
                     settings.require_egress_proxy and bool(settings.egress_proxy_url.strip())
                 ),
             )
+            if policy_check is not None and not await policy_check(current):
+                raise AcquisitionPolicyDenied(current)
+
             try:
                 await _host_limiter.wait(host)
             except Exception as exc:
                 raise AcquisitionError("Host pacing unavailable; acquisition denied") from exc
+
             try:
                 async with client.get(
                     current,
@@ -83,7 +138,11 @@ async def fetch_response(
                         location = response.headers.get("Location")
                         if not location:
                             raise AcquisitionError("Redirect missing Location header")
-                        current = urljoin(current, location)
+                        next_url = urljoin(current, location)
+                        redirect_chain.append(
+                            {"status": response.status, "from": current, "to": next_url}
+                        )
+                        current = next_url
                         continue
 
                     chunks: list[bytes] = []
@@ -91,25 +150,43 @@ async def fetch_response(
                     async for chunk in response.content.iter_chunked(64 * 1024):
                         total += len(chunk)
                         if total > settings.max_response_bytes:
-                            raise AcquisitionError(
-                                "Response exceeded configured size limit"
-                            )
+                            raise AcquisitionError("Response exceeded configured size limit")
                         chunks.append(chunk)
-                    body = b"".join(chunks).decode(
-                        response.charset or "utf-8", errors="replace"
+                    body = b"".join(chunks)
+                    charset = response.charset or "utf-8"
+                    text = body.decode(charset, errors="replace")
+                    response_headers = {
+                        key.lower(): value
+                        for key, value in response.headers.items()
+                        if key.lower() in _SAFE_RESPONSE_HEADERS
+                    }
+                    return FetchResult(
+                        status=response.status,
+                        body=body,
+                        text=text,
+                        final_url=str(response.url),
+                        media_type=response.headers.get("Content-Type"),
+                        response_headers=response_headers,
+                        redirect_chain=tuple(redirect_chain),
                     )
-                    return response.status, body, str(response.url)
-            except AcquisitionError:
+            except (AcquisitionError, AcquisitionPolicyDenied):
                 raise
-            except (aiohttp.ClientError, TimeoutError) as exc:
-                raise AcquisitionError(
-                    f"HTTP acquisition failed: {type(exc).__name__}"
-                ) from exc
+            except (aiohttp.ClientError, TimeoutError, UnicodeError) as exc:
+                raise AcquisitionError(f"HTTP acquisition failed: {type(exc).__name__}") from exc
+
     raise AcquisitionError("Unable to fetch URL")
 
 
+async def fetch_response(
+    url: str, *, max_redirects: int | None = None, accept: str | None = None
+) -> tuple[int, str, str]:
+    """Backward-compatible tuple interface used by policy and provider adapters."""
+    result = await fetch_response_details(url, max_redirects=max_redirects, accept=accept)
+    return result.status, result.text, result.final_url
+
+
 async def fetch_url(url: str) -> tuple[str, str]:
-    status, body, final_url = await fetch_response(url)
-    if status < 200 or status >= 300:
-        raise AcquisitionError(f"HTTP acquisition returned status {status}")
-    return body, final_url
+    result = await fetch_response_details(url)
+    if result.status < 200 or result.status >= 300:
+        raise AcquisitionError(f"HTTP acquisition returned status {result.status}")
+    return result.text, result.final_url

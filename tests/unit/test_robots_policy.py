@@ -14,4 +14,5 @@ def test_robots_cache_returns_cached_allow_all(tmp_path):
     policy = RobotsPolicy()
     policy._cache["https://example.org"] = (10**20, None, True)
     import asyncio
+
     assert asyncio.run(policy.can_fetch("https://example.org/a"))

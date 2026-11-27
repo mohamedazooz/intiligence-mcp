@@ -1,0 +1,28 @@
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "INTILIGENCE Private Search"
+
+search:
+  safe_search: 1
+  autocomplete: ""
+  formats:
+    - html
+    - json
+  max_page: 2
+
+server:
+  secret_key: "replace-this-value-through-SEARXNG_SECRET"
+  limiter: false
+  image_proxy: false
+
+outgoing:
+  request_timeout: 5.0
+  max_request_timeout: 8.0
+  pool_connections: 20
+  pool_maxsize: 5
+  max_redirects: 3
+  proxies:
+    all://:
+      - http://egress-proxy:3128

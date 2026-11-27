@@ -57,14 +57,17 @@ def test_required_shared_limiter_fails_without_redis_url():
 
 def test_redis_url_validation_accepts_redis_and_rediss():
     assert Settings(redis_url="redis://cache:6379/0").redis_url == "redis://cache:6379/0"
-    assert Settings(redis_url="rediss://user:secret@cache.example:6380/2").redis_url.startswith("rediss://")
+    assert Settings(redis_url="rediss://user:secret@cache.example:6380/2").redis_url.startswith(
+        "rediss://"
+    )
 
 
-@pytest.mark.parametrize("url", ["http://cache:6379", "redis://", "redis://cache:6379/a", "redis://cache:6379/0?x=1"])
+@pytest.mark.parametrize(
+    "url", ["http://cache:6379", "redis://", "redis://cache:6379/a", "redis://cache:6379/0?x=1"]
+)
 def test_redis_url_validation_rejects_invalid_values(url):
     with pytest.raises(ValidationError):
         Settings(redis_url=url)
-
 
 
 def test_redis_limiter_factory_builds_client_from_configured_url(monkeypatch):

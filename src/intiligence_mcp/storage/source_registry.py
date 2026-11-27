@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
@@ -27,7 +29,11 @@ def canonicalize_url(url: str) -> str:
         raise ValueError("Source URL must not contain embedded credentials")
     host = parts.hostname.encode("idna").decode("ascii").lower().rstrip(".")
     port = parts.port
-    netloc = host if port is None or (scheme, port) in {("http", 80), ("https", 443)} else f"{host}:{port}"
+    netloc = (
+        host
+        if port is None or (scheme, port) in {("http", 80), ("https", 443)}
+        else f"{host}:{port}"
+    )
     return urlunsplit((scheme, netloc, parts.path or "/", parts.query, ""))
 
 
@@ -46,26 +52,39 @@ class SourceRegistry:
             )""")
             db.execute("CREATE INDEX IF NOT EXISTS idx_sources_host ON sources(host)")
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         db = sqlite3.connect(self.path, timeout=10)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
-        return db
+        db.execute("PRAGMA busy_timeout=10000")
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
 
     def add(self, url: str, title: str | None = None) -> SourceRecord:
         canonical = canonicalize_url(url)
         host = urlsplit(canonical).hostname or ""
         source_id = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
         with self._connect() as db:
-            db.execute("INSERT OR IGNORE INTO sources(source_id,url,host,title) VALUES(?,?,?,?)", (source_id, canonical, host, title))
+            db.execute(
+                "INSERT OR IGNORE INTO sources(source_id,url,host,title) VALUES(?,?,?,?)",
+                (source_id, canonical, host, title),
+            )
             row = db.execute("SELECT * FROM sources WHERE source_id=?", (source_id,)).fetchone()
         if row is None:
             raise RuntimeError("Source registry write did not persist")
-        return SourceRecord(row["source_id"], row["url"], row["host"], row["title"], row["first_seen_at"])
+        return SourceRecord(
+            row["source_id"], row["url"], row["host"], row["title"], row["first_seen_at"]
+        )
 
     def get(self, source_id: str) -> SourceRecord | None:
         with self._connect() as db:
             row = db.execute("SELECT * FROM sources WHERE source_id=?", (source_id,)).fetchone()
         if row is None:
             return None
-        return SourceRecord(row["source_id"], row["url"], row["host"], row["title"], row["first_seen_at"])
+        return SourceRecord(
+            row["source_id"], row["url"], row["host"], row["title"], row["first_seen_at"]
+        )

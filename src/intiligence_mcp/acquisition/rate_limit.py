@@ -56,7 +56,9 @@ class RedisHostRateLimiter:
         if min_interval_seconds < 0:
             raise ValueError("min_interval_seconds must be non-negative")
         self._client = redis_client
-        self._interval_ms = max(1, round(min_interval_seconds * 1000)) if min_interval_seconds > 0 else 0
+        self._interval_ms = (
+            max(1, round(min_interval_seconds * 1000)) if min_interval_seconds > 0 else 0
+        )
         self._key_prefix = key_prefix.rstrip(":")
 
     async def wait(self, host: str) -> None:

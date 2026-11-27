@@ -82,3 +82,4 @@ async def test_public_repository_inventory_is_bounded_and_evidence_linked(tmp_pa
     assert len(calls) == 2
     for artifact in result["provenance"].values():
         assert evidence_store.get(artifact["evidence_id"]) is not None
+        assert evidence_store.get_capture(artifact["artifact_id"]) is not None

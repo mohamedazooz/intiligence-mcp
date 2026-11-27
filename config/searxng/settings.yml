@@ -1,0 +1,8 @@
+use_default_settings: true
+
+server:
+  secret_key: "omnipulse-local-searxng-secret-key-9f4c2b8a1d7e6035"
+  limiter: false
+
+search:
+  formats: [html, json]

@@ -41,10 +41,13 @@ def test_temporary_dns_failure_can_be_delegated_to_required_proxy(monkeypatch):
         raise socket.gaierror(socket.EAI_AGAIN, "Temporary failure in name resolution")
 
     monkeypatch.setattr("socket.getaddrinfo", temporary_failure)
-    assert validate_url(
-        "https://example.org/resource",
-        allow_temporary_dns_failure=True,
-    ) == "example.org"
+    assert (
+        validate_url(
+            "https://example.org/resource",
+            allow_temporary_dns_failure=True,
+        )
+        == "example.org"
+    )
 
 
 def test_nxdomain_still_fails_closed_even_with_proxy_dns_fallback(monkeypatch):

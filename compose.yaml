@@ -25,6 +25,52 @@ services:
       retries: 3
       start_period: 10s
 
+  searxng:
+    image: searxng/searxng:2026.11.21-c6ee3e9fd
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 96
+    mem_limit: 768m
+    cpus: 1.0
+    tmpfs:
+      - /tmp:mode=1777
+      - /var/cache/searxng:mode=0750
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?Set SEARXNG_SECRET in the local .env file}
+      SEARXNG_BASE_URL: http://searxng:8080/
+    volumes:
+      - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    depends_on:
+      egress-proxy:
+        condition: service_healthy
+    networks:
+      - internal_net
+
+  tor-gateway:
+    profiles: ["onion"]
+    build:
+      context: ./deploy/tor-gateway
+    restart: unless-stopped
+    read_only: true
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 0.5
+    tmpfs:
+      - /var/lib/tor:uid=10001,gid=10001,mode=0700
+      - /tmp:uid=10001,gid=10001,mode=1777
+    networks:
+      - internal_net
+      - egress_net
+
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
@@ -76,6 +122,9 @@ services:
       INTILIGENCE_REDIS_URL: redis://redis:6379/0
       INTILIGENCE_REQUIRE_SHARED_RATE_LIMIT: "true"
       INTILIGENCE_REQUIRE_SHARED_ROBOTS_CACHE: "true"
+      INTILIGENCE_SEARXNG_URL: http://searxng:8080
+      INTILIGENCE_TOR_SOCKS_URL: socks5://tor-gateway:9050
+      INTILIGENCE_ENABLE_ONION_OSINT: "false"
     volumes:
       - intiligence_data:/app/.data
     depends_on:
@@ -83,6 +132,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      searxng:
+        condition: service_started
     networks:
       - internal_net
       - redis_net

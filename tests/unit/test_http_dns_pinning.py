@@ -31,9 +31,7 @@ async def test_http_connector_uses_resolver_returned_ip(monkeypatch):
     async def handler(reader, writer):
         while await reader.readline() not in (b"\r\n", b""):
             pass
-        writer.write(
-            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
-        )
+        writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
         await writer.drain()
         writer.close()
         await writer.wait_closed()
@@ -67,9 +65,7 @@ async def test_http_acquisition_routes_through_configured_proxy(monkeypatch):
         request_lines.append((await reader.readline()).decode().strip())
         while await reader.readline() not in (b"\r\n", b""):
             pass
-        writer.write(
-            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
-        )
+        writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
         await writer.drain()
         writer.close()
         await writer.wait_closed()

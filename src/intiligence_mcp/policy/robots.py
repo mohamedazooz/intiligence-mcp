@@ -65,29 +65,25 @@ class RobotsPolicy:
         return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), "", "", ""))
 
     @staticmethod
-    def _decision(
-        record: str, robots_url: str
-    ) -> tuple[RobotFileParser | None, bool]:
+    def _decision(record: str, robots_url: str) -> tuple[RobotFileParser | None, bool]:
         try:
             payload = json.loads(record)
             status = int(payload["status"])
             body = str(payload.get("body", ""))
         except (TypeError, ValueError, KeyError, json.JSONDecodeError) as exc:
-            raise RobotsPolicyError("shared robots cache record is invalid; acquisition denied") from exc
+            raise RobotsPolicyError(
+                "shared robots cache record is invalid; acquisition denied"
+            ) from exc
         if status in (404, 410):
             return None, True
         if status != 200:
-            raise RobotsPolicyError(
-                f"robots.txt returned {status}; acquisition denied"
-            )
+            raise RobotsPolicyError(f"robots.txt returned {status}; acquisition denied")
         parser = RobotFileParser()
         parser.set_url(robots_url)
         parser.parse(body.splitlines())
         return parser, False
 
-    def _allowed(
-        self, url: str, parser: RobotFileParser | None, allow_all: bool
-    ) -> bool:
+    def _allowed(self, url: str, parser: RobotFileParser | None, allow_all: bool) -> bool:
         return allow_all if parser is None else parser.can_fetch(settings.user_agent, url)
 
     async def _fetch_policy(self, robots_url: str) -> tuple[int, str]:

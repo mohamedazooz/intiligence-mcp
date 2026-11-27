@@ -1,0 +1,10 @@
+ClientOnly 1
+DataDirectory /var/lib/tor
+SocksPort 0.0.0.0:9050 IsolateSOCKSAuth
+SocksPolicy accept 172.30.0.0/24
+SocksPolicy reject *
+SafeSocks 1
+TestSocks 1
+ExitPolicy reject *:*
+AvoidDiskWrites 1
+Log notice stdout

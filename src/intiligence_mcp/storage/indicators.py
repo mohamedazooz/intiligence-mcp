@@ -4,18 +4,19 @@ Only passive indicators are extracted. Email addresses, credentials, and wallet
 identifiers are intentionally excluded to avoid turning evidence parsing into
 personal-data harvesting.
 """
+
 from __future__ import annotations
 
 import hashlib
 import ipaddress
 import re
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-_IPV4_CANDIDATE = re.compile(
-    r"(?<![0-9.])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9.])"
-)
+_IPV4_CANDIDATE = re.compile(r"(?<![0-9.])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9.])")
 _IPV6_CANDIDATE = re.compile(
     r"(?<![0-9A-Fa-f:])(?:[0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4}(?![0-9A-Fa-f:])"
 )
@@ -67,11 +68,17 @@ class IndicatorStore:
                 """
             )
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         db = sqlite3.connect(self.path, timeout=10)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
-        return db
+        db.execute("PRAGMA busy_timeout=10000")
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
 
     @staticmethod
     def _normalize(kind: str, value: str) -> str:
@@ -92,9 +99,7 @@ class IndicatorStore:
 
             for kind, value in values:
                 normalized = self._normalize(kind, value)
-                indicator_id = hashlib.sha256(
-                    f"{kind}:{normalized}".encode()
-                ).hexdigest()
+                indicator_id = hashlib.sha256(f"{kind}:{normalized}".encode()).hexdigest()
                 db.execute(
                     """
                     INSERT OR IGNORE INTO indicators
@@ -227,7 +232,7 @@ def extract_indicators(text: str, *, max_per_kind: int = 100) -> list[tuple[str,
 
     counts: dict[str, int] = {}
     output: list[tuple[str, str]] = []
-    for (kind, normalized) in sorted(found):
+    for kind, normalized in sorted(found):
         if counts.get(kind, 0) >= max_per_kind:
             continue
         counts[kind] = counts.get(kind, 0) + 1

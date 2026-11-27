@@ -10,10 +10,7 @@ def blocked_networks():
     networks = []
     for line in CONFIG.read_text(encoding="utf-8").splitlines():
         if line.startswith("acl blocked_dst dst "):
-            networks.extend(
-                ipaddress.ip_network(value, strict=False)
-                for value in line.split()[3:]
-            )
+            networks.extend(ipaddress.ip_network(value, strict=False) for value in line.split()[3:])
     return networks
 
 

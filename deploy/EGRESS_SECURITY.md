@@ -64,3 +64,31 @@ The named `intiligence_data` volume persists SQLite source/evidence/claim data. 
 - Docker `internal: true` isolates the app network from external routing, but Docker daemon/host administrators remain trusted.
 - Local Docker Desktop integration on 2026-11-22 verified Squid config parsing and health (`mgr:info`), public HTTP/HTTPS access, and HTTP 403 denials for loopback, RFC1918, link-local/metadata, Docker internal gateway (`172.30.0.1`), nonstandard ports, IPv6 loopback/ULA/link-local/documentation, and IPv4-mapped private addresses. Static ACL regression tests also cover CGNAT and additional reserved/documentation ranges. Direct app-container connections to public IPs and the metadata IP failed with `ENETUNREACH`. Redis 7.4 connectivity, Redis-backed host pacing, and shared robots-cache write/reuse also passed. The app container fetched `example.com` through Squid; the MCP stdio `initialize`, `tools/list`, and `research_fetch` `tools/call` round-trip returned source/evidence IDs. A startup shim strips the UTF-8 BOM that the Windows Docker Compose stdin path prepended to the first JSON-RPC frame.
 - This is a reference deployment profile, not yet VPS production validation. Mixed DNS answers, DNS rebinding, redirect-to-private cases, host-gateway routes beyond `172.30.0.1`, remote Redis auth/TLS, and backup/restore remain unverified.
+
+
+## Search and optional Tor network paths (2026-11-23)
+
+### SearXNG
+
+- The searxng service is attached only to internal_net; no host port is published.
+- MCP calls SearXNG at http://searxng:8080 over the internal network.
+- SearXNG outbound engine traffic uses http://egress-proxy:3128; the proxy remains the destination-IP/port enforcement boundary.
+- JSON is enabled intentionally because the local MCP adapter requests format=json. Safe Search is configured at level 1. Image proxying is disabled to avoid uncontrolled third-party media fetches.
+- Set SEARXNG_SECRET in a local, ignored .env file copied from .env.example. Never commit this secret.
+
+### Tor client gateway
+
+- tor-gateway is under the Compose profile onion, so the default stack does not start Tor.
+- The Tor container is attached to internal_net for SOCKS access from MCP and egress_net for Tor relay connections. MCP itself remains attached only to internal/Redis networks and has no direct Internet route.
+- The SOCKS port 9050 is not published to the host; the only intended consumer is the MCP container on the internal Docker network.
+- Tor is configured as a client-only instance, not an exit relay. No ControlPort, ORPort, bridge configuration, or host-published SOCKS listener is enabled.
+- Onion retrieval requires an operator-owned allowlist of exact v3 hostnames and INTILIGENCE_ENABLE_ONION_OSINT=true. The adapter uses remote DNS through SOCKS5 and permits only bounded GET-style reads of HTML, XHTML, plain text and JSON.
+- The adapter refuses redirects, arbitrary ports, credentials in URLs, cookies, script execution, form submission, file downloads, and automated challenge solving. It never falls back to clearnet.
+- Start the optional gateway only when needed: docker compose --profile onion up -d tor-gateway. Enable the MCP onion flags only for a run that has a source allowlist and the optional Python tor extra installed. The default runtime leaves onion acquisition disabled.
+
+### Boundary and operational caveats
+
+- A dual-homed Tor client container is a separate egress-capable workload. Apply host/cloud firewall policy and monitor its outbound connections; Docker network declarations do not replace host firewall rules.
+- Do not attach browser automation, the document parser, or other workers to egress_net. They should use a dedicated internal network and the controlled proxy.
+- A Tor SOCKS gateway does not constitute a global Dark Web search engine. The supported behavior is retrieval from explicitly approved onion services supplied by the operator; broad enumeration and indiscriminate crawling are intentionally absent.
+- Neither this reference profile nor local Compose validation alone establishes production security. Run staging tests for network routes, mixed DNS answers, proxy ACLs, host-gateway reachability, and container image provenance before relying on it.

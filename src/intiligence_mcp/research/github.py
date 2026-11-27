@@ -1,4 +1,5 @@
 """Bounded, read-only inventory of public GitHub repositories."""
+
 from __future__ import annotations
 
 import json
@@ -66,12 +67,24 @@ async def _fetch_json_evidence(
     if not isinstance(payload, dict):
         raise GitHubResearchError("GitHub API response must be a JSON object")
     source = source_registry.add(final_url, title)
-    evidence = evidence_store.save(source.source_id, body)
+    capture = evidence_store.capture(
+        source.source_id,
+        body.encode("utf-8"),
+        body,
+        media_type="application/vnd.github+json",
+        http_status=status,
+        final_url=final_url,
+        extractor_name="github-api-json",
+        extractor_version="1",
+    )
     return payload, {
         "source_id": source.source_id,
-        "evidence_id": evidence.evidence_id,
-        "content_sha256": evidence.content_sha256,
-        "captured_at": evidence.captured_at,
+        "evidence_id": capture.evidence_id,
+        "artifact_id": capture.artifact_id,
+        "representation_id": capture.representation_id,
+        "content_sha256": capture.content_sha256,
+        "raw_sha256": capture.raw_sha256,
+        "captured_at": capture.captured_at,
     }
 
 
@@ -124,34 +137,37 @@ async def inspect_public_repository(
     ]
 
     mcp_files = sorted(
-        path for path in paths
-        if path.lower().endswith((".mcp.json", "/mcp.json"))
-        or path.lower() == "mcp.json"
+        path
+        for path in paths
+        if path.lower().endswith((".mcp.json", "/mcp.json")) or path.lower() == "mcp.json"
     )[:100]
     skill_files = sorted(
-        path for path in paths
-        if path.lower().endswith("skill.md")
-        or "/.claude/skills/" in f"/{path.lower()}/"
+        path
+        for path in paths
+        if path.lower().endswith("skill.md") or "/.claude/skills/" in f"/{path.lower()}/"
     )[:100]
     hook_files = sorted(
-        path for path in paths
-        if path.lower().endswith((".claude/settings.json",))
-        or "/hooks/" in f"/{path.lower()}/"
+        path
+        for path in paths
+        if path.lower().endswith((".claude/settings.json",)) or "/hooks/" in f"/{path.lower()}/"
     )[:100]
     build_files = sorted(
-        path for path in paths
-        if path.rsplit("/", 1)[-1].lower() in {
-            "pyproject.toml", "package.json", "requirements.txt",
-            "dockerfile", "compose.yaml", "compose.yml", "docker-compose.yml",
+        path
+        for path in paths
+        if path.rsplit("/", 1)[-1].lower()
+        in {
+            "pyproject.toml",
+            "package.json",
+            "requirements.txt",
+            "dockerfile",
+            "compose.yaml",
+            "compose.yml",
+            "docker-compose.yml",
         }
     )[:100]
 
     license_info = metadata.get("license")
-    license_spdx = (
-        license_info.get("spdx_id")
-        if isinstance(license_info, dict)
-        else None
-    )
+    license_spdx = license_info.get("spdx_id") if isinstance(license_info, dict) else None
 
     return {
         "status": "ok",

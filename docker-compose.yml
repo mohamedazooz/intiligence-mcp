@@ -1,0 +1,28 @@
+services:
+  omnipulse-core:
+    build: ./core
+    container_name: omnipulse-core
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      - SEARXNG_URL=http://searxng:8080
+      - SQLITE_PATH=/data/omnipulse.db
+    volumes:
+      - ./data:/data
+    mem_limit: 384m
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks: [intel_net]
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    container_name: omnipulse-searxng
+    restart: unless-stopped
+    volumes:
+      - ./config/searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+    mem_limit: 256m
+    networks: [intel_net]
+networks:
+  intel_net:
+    driver: bridge

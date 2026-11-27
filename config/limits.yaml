@@ -1,0 +1,5 @@
+max_depth: 2
+max_pivots: 15
+per_adapter_timeout: 18
+max_response_tokens: 3500
+
